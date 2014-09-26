@@ -1,0 +1,5 @@
+murano-dashboard (2014.2~b3-1) experimental; urgency=medium
+
+  * Initial release (Closes: #XXXXXX).
+
+ -- Thomas Goirand <zigo@debian.org>  Fri, 26 Sep 2014 20:44:28 +0800

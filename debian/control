@@ -1,0 +1,60 @@
+Source: murano-dashboard
+Section: python
+Priority: extra
+Maintainer: PKG OpenStack <openstack-devel@lists.alioth.debian.org>
+Uploaders: Thomas Goirand <zigo@debian.org>
+Build-Depends: debhelper (>= 9),
+               openstack-pkg-tools,
+               python-all (>= 2.6.6-3~),
+               python-pbr (>= 0.5.21),
+               python-sphinx
+Build-Depends-Indep: openstack-dashboard,
+                     python-anyjson (>= 0.3.3),
+                     python-compressor,
+                     python-coverage (>= 3.6),
+                     python-django (>= 1.4),
+                     python-django-floppyforms (>= 1.1),
+                     python-django-horizon,
+                     python-django-nose,
+                     python-docutils,
+                     python-hacking (>= 0.8.0),
+                     python-iso8601 (>= 0.1.9),
+                     python-mock (>= 1.0),
+                     python-mox,
+                     python-muranoclient,
+                     python-nose,
+                     python-nosehtmloutput,
+                     python-openstack-auth (>= 1.1.4),
+                     python-openstack.nose-plugin,
+                     python-oslosphinx,
+                     python-six (>= 1.7.0),
+                     python-testtools (>= 0.9.34),
+                     python-yaml (>= 3.1.0),
+                     python-yaql (>= 0.2.3)
+Standards-Version: 3.9.5
+Homepage: https://github.com/openstack/tuskar-ui
+Vcs-Git: git://anonscm.debian.org/openstack/tuskar-ui.git
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/tuskar-ui.git;a=summary
+
+Package: python-murano-dashboard
+Architecture: all
+Pre-Depends: dpkg (>= 1.15.6~)
+Depends: python-anyjson (>= 0.3.3),
+         python-django-floppyforms (>= 1.1),
+         python-iso8601 (>= 0.1.9),
+         python-muranoclient,
+         python-pbr (>= 0.6),
+         python-six (>= 1.7.0),
+         python-yaml (>= 3.1.0),
+         python-yaql (>= 0.2.3),
+         ${misc:Depends},
+         ${python:Depends}
+Description: cloud-ready application catalog - dashboard plugin
+ Murano Project introduces an application catalog, which allows application
+ developers and cloud administrators to publish various cloud-ready
+ applications in a browsable categorised catalog, which may be used by the
+ cloud users (including the inexperienced ones) to pick-up the needed
+ applications and services and composes the reliable environments out of them
+ in a "push-the-button" manner.
+ .
+ This package contains the OpenStack dashboard plugin.

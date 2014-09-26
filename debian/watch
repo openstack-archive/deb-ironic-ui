@@ -1,0 +1,2 @@
+version=3
+https://github.com/openstack/tuskar-ui/tags .*/(\d[\d\.]+)\.tar\.gz

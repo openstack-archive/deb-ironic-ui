@@ -1,0 +1,27 @@
+#!/usr/bin/make -f
+
+PYTHONS:=$(shell pyversions -vr)
+
+UPSTREAM_GIT = git://github.com/stackforge/murano-dashboard.git
+include /usr/share/openstack-pkg-tools/pkgos.make
+export OSLO_PACKAGE_VERSION=$(VERSION)
+
+%:
+	dh $@ --buildsystem=python_distutils --with python2
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	bash -x run_tests.sh -N
+endif
+
+override_dh_clean:
+	dh_clean -O--buildsystem=python_distutils
+	rm -rf .coverage*
+
+override_dh_auto_install:
+	dh_auto_install -O--buildsystem=python_distutils
+#	# Activates tuskar-ui in the dashboard
+#	set -e && for pyvers in $(PYTHONS); do \
+#		mkdir -p $(CURDIR)/debian/python-tuskar-ui/usr/lib/python$$pyvers/dist-packages/openstack_dashboard/local/enabled ; \
+#		cp $(CURDIR)/_50_tuskar.py.example $(CURDIR)/debian/python-tuskar-ui/usr/lib/python$$pyvers/dist-packages/openstack_dashboard/local/enabled/_50_tuskar.py ; \
+#	done
