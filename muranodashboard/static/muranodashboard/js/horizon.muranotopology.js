@@ -36,13 +36,16 @@ function update(){
     .attr("node_id", function(d) { return d.id; })
     .call(force.drag);
 
+
+
   nodeEnter.append("image")
     .attr("xlink:href", function(d) { return d.image; })
     .attr("id", function(d){ return "image_"+ d.id; })
     .attr("x", function(d) { return d.image_x; })
     .attr("y", function(d) { return d.image_y; })
     .attr("width", function(d) { return d.image_size; })
-    .attr("height", function(d) { return d.image_size; });
+    .attr("height", function(d) { return d.image_size; })
+    .attr("clip-path","url(#clipCircle)");
   node.exit().remove();
 
   link.enter().insert("path", "g.node")
@@ -175,7 +178,7 @@ function build_reverse_links(node){
             'source':findNodeIndex(nodes[i].id),
             'target':findNodeIndex(node.id),
             'value':1,
-            'link_type': node.link_type
+            'link_type': nodes[i].link_type
           });
         }
       }
@@ -253,7 +256,7 @@ function ajax_poll(poll_time){
 
 if ($(murano_container).length){
   var width = $(murano_container).width(),
-    height = 500,
+    height = 1040,
     environment_id = $("#environment_id").data("environment_id"),
     ajax_url = '/murano/'+environment_id+'/services/get_d3_data',
     graph = $("#d3_data").data("d3_data"),
@@ -273,6 +276,11 @@ if ($(murano_container).length){
     needs_update = false,
     nodes = force.nodes(),
     links = force.links();
+    svg.append("svg:clipPath")
+             .attr("id","clipCircle")
+             .append("svg:circle")
+             .attr("cursor","pointer")
+              .attr("r", "28px");
 
   build_links();
   update();

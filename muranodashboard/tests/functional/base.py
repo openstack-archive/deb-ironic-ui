@@ -172,8 +172,7 @@ class UITestCase(BaseDeps):
         log.debug("Waiting for a success message")
         WebDriverWait(self.driver, 2).until(
             EC.presence_of_element_located(locator))
-        WebDriverWait(self.driver, 6).until(
-            lambda driver: not driver.find_element(*locator).is_displayed())
+        self.driver.find_element_by_css_selector('a.close').click()
 
     def wait_element_is_clickable(self, method, element):
         return WebDriverWait(self.driver, 10).until(
@@ -336,3 +335,17 @@ class ApplicationTestCase(ImageTestCase):
         self.fill_field(by.By.ID, 'id_{0}'.format(param), value)
         self.driver.find_element_by_xpath(consts.InputSubmit).click()
         self.driver.refresh()
+
+    def start_deploy(self, app_id, app_name='TestApp'):
+        self.go_to_submenu('Applications')
+        self.select_and_click_action_for_app('quick-add', app_id)
+        field_id = "{0}_0-name".format(app_id)
+        self.fill_field(by.By.ID, field_id, value=app_name)
+        self.driver.find_element_by_xpath(consts.ButtonSubmit).click()
+        self.driver.find_element_by_xpath(consts.InputSubmit).click()
+        self.select_from_list('osImage', self.image.name)
+
+        self.driver.find_element_by_xpath(consts.InputSubmit).click()
+
+        self.driver.find_element_by_css_selector(
+            '#services__action_deploy_env').click()
