@@ -40,7 +40,8 @@ Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/tuskar-ui.git;a=summa
 Package: python-murano-dashboard
 Architecture: all
 Pre-Depends: dpkg (>= 1.15.6~)
-Depends: python-anyjson (>= 0.3.3),
+Depends: openstack-dashboard,
+         python-anyjson (>= 0.3.3),
          python-django-floppyforms (>= 1.1),
          python-iso8601 (>= 0.1.9),
          python-muranoclient,
