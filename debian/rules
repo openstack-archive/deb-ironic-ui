@@ -11,7 +11,14 @@ export OSLO_PACKAGE_VERSION=$(VERSION)
 
 override_dh_auto_test:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
-	bash -x run_tests.sh -N --settings=muranodashboard.tests.settings
+	NOSE_WITH_OPENSTACK=1 \
+		NOSE_OPENSTACK_COLOR=1 \
+		NOSE_OPENSTACK_RED=0.05 \
+		NOSE_OPENSTACK_YELLOW=0.025 \
+		NOSE_OPENSTACK_SHOW_ELAPSED=1 \
+		DJANGO_SETTINGS_MODULE=muranodashboard.settings \
+		python-coverage run -p \
+		$(CURDIR)/manage.py test muranodashboard --settings=muranodashboard.tests.settings
 endif
 
 override_dh_clean:
