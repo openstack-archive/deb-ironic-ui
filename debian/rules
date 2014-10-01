@@ -17,7 +17,7 @@ ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 		NOSE_OPENSTACK_YELLOW=0.025 \
 		NOSE_OPENSTACK_SHOW_ELAPSED=1 \
 		DJANGO_SETTINGS_MODULE=muranodashboard.settings \
-		python-coverage run -p \
+		python-coverage run \
 		$(CURDIR)/manage.py test muranodashboard --settings=muranodashboard.tests.settings
 endif
 
