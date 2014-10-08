@@ -1,4 +1,4 @@
-murano-dashboard (2014.2~rc1-1) experimental; urgency=medium
+murano-dashboard (2014.2~rc1+git+5057fafb1c-1) experimental; urgency=medium
 
   * Initial release (Closes: #763591).
 
