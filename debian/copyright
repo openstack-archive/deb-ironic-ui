@@ -1,6 +1,6 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: tuskar-ui
-Source: https://github.com/openstack/tuskar-ui.git
+Upstream-Name: murano-dashboard
+Source: https://github.com/openstack/murano-dashboard.git
 
 Files: *
 Copyright: (c) 2013, Hewlett-Packard Development Company, L.P.

@@ -34,9 +34,9 @@ Build-Depends-Indep: openstack-dashboard (>= 2014.2~),
                      python-yaql (>= 0.2.3)
 Build-Conflicts: python-unittest2
 Standards-Version: 3.9.6
-Homepage: https://github.com/openstack/tuskar-ui
-Vcs-Git: git://anonscm.debian.org/openstack/tuskar-ui.git
-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/tuskar-ui.git;a=summary
+Homepage: https://github.com/stackforge/murano-dashboard
+Vcs-Git: git://anonscm.debian.org/openstack/murano-dashboard.git
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/murano-dashboard.git;a=summary
 
 Package: python-murano-dashboard
 Architecture: all
