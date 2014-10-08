@@ -33,7 +33,7 @@ Build-Depends-Indep: openstack-dashboard (>= 2014.2~),
                      python-yaml (>= 3.1.0),
                      python-yaql (>= 0.2.3)
 Build-Conflicts: python-unittest2
-Standards-Version: 3.9.5
+Standards-Version: 3.9.6
 Homepage: https://github.com/openstack/tuskar-ui
 Vcs-Git: git://anonscm.debian.org/openstack/tuskar-ui.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/tuskar-ui.git;a=summary
