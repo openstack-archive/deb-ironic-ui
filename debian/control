@@ -8,7 +8,7 @@ Build-Depends: debhelper (>= 9),
                python-all (>= 2.6.6-3~),
                python-pbr (>= 0.5.21),
                python-sphinx
-Build-Depends-Indep: openstack-dashboard,
+Build-Depends-Indep: openstack-dashboard (>= 2014.2~),
                      python-anyjson (>= 0.3.3),
                      python-compressor,
                      python-coverage (>= 3.6),
@@ -41,7 +41,7 @@ Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/tuskar-ui.git;a=summa
 Package: python-murano-dashboard
 Architecture: all
 Pre-Depends: dpkg (>= 1.15.6~)
-Depends: openstack-dashboard,
+Depends: openstack-dashboard (>= 2014.2~),
          python-anyjson (>= 0.3.3),
          python-django-floppyforms (>= 1.1),
          python-iso8601 (>= 0.1.9),
