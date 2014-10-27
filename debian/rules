@@ -31,7 +31,8 @@ override_dh_auto_install:
 	set -e && for pyvers in $(PYTHONS); do \
 		mkdir -p $(CURDIR)/debian/python-murano-dashboard/usr/lib/python$$pyvers/dist-packages/openstack_dashboard/enabled ; \
 		cp $(CURDIR)/muranodashboard/local/_50_murano.py $(CURDIR)/debian/python-murano-dashboard/usr/lib/python$$pyvers/dist-packages/openstack_dashboard/enabled ; \
-		cp $(CURDIR)/muranodashboard/local/_50_murano.py $(CURDIR)/debian/python-murano-dashboard/usr/share/pyshared/openstack_dashboard/enabled ; \
 	done
+	mkdir -p $(CURDIR)/debian/python-murano-dashboard/usr/share/pyshared/openstack_dashboard/enabled
+	cp $(CURDIR)/muranodashboard/local/_50_murano.py $(CURDIR)/debian/python-murano-dashboard/usr/share/pyshared/openstack_dashboard/enabled
 	mkdir -p $(CURDIR)/debian/python-murano-dashboard/usr/share/openstack-dashboard/openstack_dashboard/static/muranodashboard
 	cp -auxf muranodashboard/static/muranodashboard/* $(CURDIR)/debian/python-murano-dashboard/usr/share/openstack-dashboard/openstack_dashboard/static/muranodashboard/
