@@ -1,3 +1,10 @@
+murano-dashboard (2014.2-2) experimental; urgency=medium
+
+  * Added Add_horizon_plugin_configuration_file.patch, and pacakge
+    _50_murano.py within the openstack_dashboard/enable plugin folder.
+
+ -- Thomas Goirand <zigo@debian.org>  Mon, 27 Oct 2014 20:59:10 +0800
+
 murano-dashboard (2014.2-1) experimental; urgency=medium
 
   * New upstream release.

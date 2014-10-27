@@ -1,0 +1,397 @@
+Description: Add horizon plugin configuration file
+ Add horizon plugin configuration file
+ .
+ Implements blueprint murano-as-horizon-plugin
+Origin: upstream, https://review.openstack.org/#/c/127174/
+Author: Ekaterina Chernova <efedorova@mirantis.com>
+Date: Thu, 9 Oct 2014 08:51:31 +0000 (+0400)
+X-Git-Url: https://review.openstack.org/gitweb?p=stackforge%2Fmurano-dashboard.git;a=commitdiff_plain;h=f13d5f86242c677fcb74b5d2eeb53dd898603b90
+Change-Id: I26e15bae5d62fba2f83d8792e888897674cab8e1
+Last-Update: 2014-10-27
+
+diff --git a/apply_murano.sh b/apply_murano.sh
+new file mode 100644
+index 0000000..e5f47be
+--- /dev/null
++++ b/apply_murano.sh
+@@ -0,0 +1,94 @@
++#!/bin/bash
++#    Copyright (c) 2014 Mirantis, Inc.
++#
++#    Licensed under the Apache License, Version 2.0 (the "License"); you may
++#    not use this file except in compliance with the License. You may obtain
++#    a copy of the License at
++#
++#         http://www.apache.org/licenses/LICENSE-2.0
++#
++#    Unless required by applicable law or agreed to in writing, software
++#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
++#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
++#    License for the specific language governing permissions and limitations
++#    under the License.
++
++DEBUGLVL=2
++SCRIPT_DIR=$(cd $(dirname "$0") && pwd)
++PLUGIN_FILE="_50_murano.py"
++
++if [ "$DEBUGLVL" -eq 4 ]; then
++    set -o xtrace
++fi
++
++function insert_plugin()
++{
++    local dest=$1
++    local src="${SCRIPT_DIR}/muranodashboard/local/${PLUGIN_FILE}"
++    echo "Copying plugin file from $src to $dest"
++
++    cp ${src} ${dest}
++    if [ $? -ne 0 ]; then
++        log "...can't finish copy operation"
++        exit 1
++    else
++        echo "...SUCCESS"
++    fi
++
++}
++###########################
++# Main script starts here #
++###########################
++if [ "$#" -eq 0 ]; then
++    echo "Please, provide one of the following parameters:
++    --openstack-dashboard | -o  Openstack-dashboard package root directory location
++    -d | --dest                 Path to copy murano dashboard file
++    "
++    exit 1
++    exit 1
++fi
++
++while [[ "$#" -gt 1 ]]
++do
++    key="$1"
++    shift
++
++    case "$key" in
++        -o|--openstack-dashboard)
++        DASHBOARD_LOCATION="$1"
++        shift
++        ;;
++        -d|--dest)
++        DEST="$1"
++        shift
++        ;;
++        *)
++                # unknown option
++        ;;
++    esac
++done
++
++echo "DASHBOARD_LOCATION=${DASHBOARD_LOCATION}"
++
++if [ -n "$DEST" ]; then
++    if [ ! -d "$DEST" ]; then
++        echo "Specified distanation path $DEST doesn't exist"
++        exit 1
++    fi
++fi
++
++if [ -n "$DASHBOARD_LOCATION" ]; then
++
++    lastchr="${DASHBOARD_LOCATION:$i:1}"
++    if [ "$lastchr" = "/" ]; then
++        echo "Removimg trailing space int teh specified path"
++        DASHBOARD_LOCATION=${DASHBOARD_LOCATION::-1}
++    fi
++    DEST="${DASHBOARD_LOCATION}/local/enabled"
++
++fi
++
++
++insert_plugin $DEST
++
++exit 0
+diff --git a/muranodashboard/exceptions.py b/muranodashboard/exceptions.py
+index 87ef260..441f561 100644
+--- a/muranodashboard/exceptions.py
++++ b/muranodashboard/exceptions.py
+@@ -1,12 +1,12 @@
+-from horizon import exceptions
++
+ from muranoclient.common import exceptions as muranoclient_exc
+ 
+ 
+-exceptions.RECOVERABLE += (muranoclient_exc.HTTPException,
+-                           muranoclient_exc.HTTPForbidden,
+-                           muranoclient_exc.CommunicationError)
++RECOVERABLE = (muranoclient_exc.HTTPException,
++               muranoclient_exc.HTTPForbidden,
++               muranoclient_exc.CommunicationError)
+ 
+-exceptions.NOT_FOUND += (muranoclient_exc.NotFound,
+-                         muranoclient_exc.EndpointNotFound)
++NOT_FOUND = (muranoclient_exc.NotFound,
++             muranoclient_exc.EndpointNotFound)
+ 
+-exceptions.UNAUTHORIZED += (muranoclient_exc.HTTPUnauthorized,)
++UNAUTHORIZED = (muranoclient_exc.HTTPUnauthorized,)
+diff --git a/muranodashboard/local/_50_murano.py b/muranodashboard/local/_50_murano.py
+new file mode 100644
+index 0000000..f49f327
+--- /dev/null
++++ b/muranodashboard/local/_50_murano.py
+@@ -0,0 +1,18 @@
++from muranodashboard import exceptions
++
++# The name of the dashboard to be added to HORIZON['dashboards']. Required.
++DASHBOARD = 'murano'
++
++# If set to True, this dashboard will not be added to the settings.
++DISABLED = False
++
++ADD_INSTALLED_APPS = [
++    'muranodashboard',
++    'floppyforms'
++]
++
++ADD_EXCEPTIONS = {
++    'recoverable': exceptions.RECOVERABLE,
++    'not_found': exceptions.NOT_FOUND,
++    'unauthorized': exceptions.UNAUTHORIZED,
++}
+diff --git a/muranodashboard/settings.py b/muranodashboard/settings.py
+index d8de0b7..efef4fb 100644
+--- a/muranodashboard/settings.py
++++ b/muranodashboard/settings.py
+@@ -27,6 +27,7 @@ import xstatic.pkg.angular
+ import xstatic.pkg.angular_cookies
+ import xstatic.pkg.angular_mock
+ import xstatic.pkg.bootstrap_datepicker
++import xstatic.pkg.bootstrap_scss
+ import xstatic.pkg.d3
+ import xstatic.pkg.font_awesome
+ import xstatic.pkg.hogan
+@@ -35,6 +36,7 @@ import xstatic.pkg.jquery
+ import xstatic.pkg.jquery_migrate
+ import xstatic.pkg.jquery_quicksearch
+ import xstatic.pkg.jquery_tablesorter
++import xstatic.pkg.jquery_ui
+ import xstatic.pkg.jsencrypt
+ import xstatic.pkg.qunit
+ import xstatic.pkg.rickshaw
+@@ -71,8 +73,6 @@ STATIC_URL = '/static/'
+ ROOT_URLCONF = 'openstack_dashboard.urls'
+ 
+ HORIZON_CONFIG = {
+-    'dashboards': ('project', 'admin', 'router',),
+-    'default_dashboard': 'project',
+     'user_home': 'openstack_dashboard.views.get_user_home',
+     'ajax_queue_limit': 10,
+     'auto_fade_alerts': {
+@@ -145,12 +145,12 @@ TEMPLATE_DIRS = (
+ )
+ 
+ STATICFILES_FINDERS = (
+-    'compressor.finders.CompressorFinder',
+     'django.contrib.staticfiles.finders.FileSystemFinder',
+     'django.contrib.staticfiles.finders.AppDirectoriesFinder',
++    'compressor.finders.CompressorFinder',
+ )
+ 
+-STATICFILES_DIRS = (
++STATICFILES_DIRS = [
+     ('horizon/lib/angular',
+         xstatic.main.XStatic(xstatic.pkg.angular).base_dir),
+     ('horizon/lib/angular',
+@@ -159,6 +159,8 @@ STATICFILES_DIRS = (
+         xstatic.main.XStatic(xstatic.pkg.angular_mock).base_dir),
+     ('horizon/lib/bootstrap_datepicker',
+         xstatic.main.XStatic(xstatic.pkg.bootstrap_datepicker).base_dir),
++    ('bootstrap',
++        xstatic.main.XStatic(xstatic.pkg.bootstrap_scss).base_dir),
+     ('horizon/lib',
+         xstatic.main.XStatic(xstatic.pkg.d3).base_dir),
+     ('horizon/lib',
+@@ -183,7 +185,19 @@ STATICFILES_DIRS = (
+         xstatic.main.XStatic(xstatic.pkg.rickshaw).base_dir),
+     ('horizon/lib',
+         xstatic.main.XStatic(xstatic.pkg.spin).base_dir),
+-)
++]
++
++
++if xstatic.main.XStatic(xstatic.pkg.jquery_ui).version.startswith('1.10.'):
++    # The 1.10.x versions already contain the 'ui' directory.
++    STATICFILES_DIRS.append(
++        ('horizon/lib/jquery-ui',
++         xstatic.main.XStatic(xstatic.pkg.jquery_ui).base_dir))
++else:
++    # Newer versions dropped the directory, add it to keep the path the same.
++    STATICFILES_DIRS.append(
++        ('horizon/lib/jquery-ui/ui',
++         xstatic.main.XStatic(xstatic.pkg.jquery_ui).base_dir))
+ 
+ COMPRESS_PRECOMPILERS = (
+     ('text/scss', 'django_pyscss.compressor.DjangoScssFilter'),
+@@ -207,6 +221,7 @@ INSTALLED_APPS = [
+     'django.contrib.staticfiles',
+     'django.contrib.humanize',
+     'django_pyscss',
++    'openstack_dashboard.django_pyscss_fix',
+     'compressor',
+     'horizon',
+     'openstack_auth',
+@@ -214,13 +229,19 @@ INSTALLED_APPS = [
+ 
+ TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
+ AUTHENTICATION_BACKENDS = ('openstack_auth.backend.KeystoneBackend',)
+-MESSAGE_STORAGE = 'django.contrib.messages.storage.cookie.CookieStorage'
++MESSAGE_STORAGE = 'django.contrib.messages.storage.fallback.FallbackStorage'
+ 
+ SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
+ SESSION_COOKIE_HTTPONLY = True
+ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+ SESSION_COOKIE_SECURE = False
+ SESSION_TIMEOUT = 1800
++# A token can be near the end af validity when a page starts loading, and
++# invalid during the rendering which can cause errors when a page load.
++# TOKEN_TIMEOUT_MARGIN defines a time in seconds we retrieve from token
++# validity to avoid this issue. You can adjust this time depending on the
++# performance of the infrastructure.
++TOKEN_TIMEOUT_MARGIN = 10
+ 
+ # When using cookie-based sessions, log error when the session cookie exceeds
+ # the following size (common browsers drop cookies above a certain size):
+@@ -339,13 +360,3 @@ if DEBUG:
+ # below may be omitted, though it should not be harmful
+ from openstack_auth import utils as auth_utils
+ auth_utils.patch_middleware_get_user()
+-#START_MURANO_DASHBOARD
+-HORIZON_CONFIG['dashboards'] += ('murano',)
+-INSTALLED_APPS += ('muranodashboard', 'floppyforms',)
+-MIDDLEWARE_CLASSES += ('muranodashboard.middleware.ExceptionMiddleware',)
+-#NETWORK_TOPOLOGY = 'routed'
+-#MURANO_API_URL = 'http://localhost:8082'
+-#if murano-api is set up with ssl, uncomment next strings
+-#MURANO_API_INSECURE = True
+-MAX_FILE_SIZE_MB = 5
+-#END_MURANO_DASHBOARD
+diff --git a/update_setting.sh b/update_setting.sh
+old mode 100755
+new mode 100644
+index c1ab414..afcbb28
+--- a/update_setting.sh
++++ b/update_setting.sh
+@@ -40,76 +40,6 @@ function log {
+         esac
+     fi
+ }
+-
+-function modify_horizon_config()
+-{
+-    local config_file=$1
+-
+-    if [ "$REMOVE" = true ]; then
+-        log "Removing Murano data from \"$config_file\" "
+-        sed -e '/^#START_MURANO_DASHBOARD/,/^#END_MURANO_DASHBOARD/ d' -i $config_file
+-        if [ $? -ne 0 ]; then
+-            log "...can't modify \"$config_file\", check permissions or something else, exiting!!!"
+-            exit 1
+-        else
+-            log "...SUCCESS"
+-        fi
+-    else
+-        if grep -q '#START_MURANO_DASHBOARD' "$config_file"; then
+-            log "\"$config_file\" already has Murano data, you can change it manually and restart apache2/httpd service"
+-            return
+-        fi
+-
+-        local updated_data=$(mktemp)
+-        log "Creating \"$updated_data\" temprorary file to compose Murano Data"
+-        # Start to compose Murano data
+-        cat << EOF >> "$updated_data"
+-#START_MURANO_DASHBOARD
+-HORIZON_CONFIG['dashboards'] += ('murano',)
+-INSTALLED_APPS += ('muranodashboard', 'floppyforms',)
+-MIDDLEWARE_CLASSES += ('muranodashboard.middleware.ExceptionMiddleware',)
+-#NETWORK_TOPOLOGY = 'routed'
+-#MURANO_API_URL = 'http://localhost:8082'
+-#if murano-api is set up with ssl, uncomment next strings
+-#MURANO_API_INSECURE = True
+-MAX_FILE_SIZE_MB = 5
+-EOF
+-        if [ -n "$DASHBOARD_LOG_FILE" ]; then
+-            cat << EOF >> "$updated_data"
+-verbose_formatter = {'verbose': {'format': '[%(asctime)s] [%(levelname)s] [pid=%(process)d] %(message)s'}}
+-if 'formatters' in LOGGING: LOGGING['formatters'].update(verbose_formatter)
+-else: LOGGING['formatters'] = verbose_formatter
+-LOGGING['handlers']['murano-file'] = {'level': 'DEBUG', 'formatter': 'verbose', 'class': 'logging.FileHandler', 'filename': '$DASHBOARD_LOG_FILE'}
+-LOGGING['loggers']['muranodashboard'] = {'handlers': ['murano-file'], 'level': 'DEBUG'}
+-LOGGING['loggers']['muranoclient'] = {'handlers': ['murano-file'], 'level': 'ERROR'}
+-EOF
+-        fi
+-
+-        if [ -n "$CACHE_DIR" ]; then
+-            cat << EOF >> "$updated_data"
+-METADATA_CACHE_DIR = "$CACHE_DIR"
+-EOF
+-        fi
+-
+-        # End composing murano data
+-        cat << EOF >> "$updated_data"
+-#END_MURANO_DASHBOARD
+-EOF
+-        log "The following data will be added to the config: $(cat $updated_data)"
+-        log "Adding Murano data to \"$config_file\" "
+-        cat "$updated_data" >> "$config_file"
+-        if [ $? -ne 0 ];then
+-            log "Can't modify \"$config_file\", check permissions or something else, exiting!!!"
+-            exit 1
+-        else
+-            log "Deleting \"$updated_data\""
+-            rm "$updated_data"
+-            log "...SUCCESS"
+-        fi
+-    fi
+-    exit 0
+-}
+-
+ ###########################
+ # Main script starts here #
+ ###########################
+@@ -156,29 +86,18 @@ done
+ 
+ if [ -z "$INPUT" ] && [ -z "$OUTPUT" ]; then
+     log "\nPlease, provide:\n
+- --input={PATH}          to add Murano settings to the existing file\n
+  --output={PATH}         for the result file \n
+  --log-file={FILE_NAME}  to use separate file for murano-dashboard logging\n
+  --cache-dir={PATH}      cache directory, default is '/tmp/muranodashboard-cache'\n
+- --remove                remove murano data from the specified settings file
+          "
+     exit 1
+ fi
+ 
+-if [ -n "$OUTPUT" ] && [ -n "$INPUT" ]; then
+-    log "Copying input file for further modification"
+-    cp $INPUT $OUTPUT
+-fi
+-
+-if [ -n "$INPUT" ] && [ ! -f "$INPUT" ]; then
++if [ -n "$OUTPUT" ] && [ ! -f "$OUTPUT" ]; then
+     log "Updating file doen't exist"
+     exit 1
+ fi
+ 
+-if [ -z "$OUTPUT" ] && [ -n "$INPUT" ]; then
+-    OUTPUT=$INPUT
+-fi
+-
+ if [ -z "$INPUT" ]; then
+     log "Downloading updated horizon config"
+     settings="https://raw.githubusercontent.com/openstack/horizon/$TAG/openstack_dashboard/settings.py"
+@@ -189,6 +108,4 @@ if [ -z "$INPUT" ]; then
+      fi
+ fi
+ 
+-modify_horizon_config $OUTPUT
+-
+ exit 0
