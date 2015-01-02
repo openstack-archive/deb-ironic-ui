@@ -1,3 +1,9 @@
+murano-dashboard (2015.1~b1-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+
+ -- Thomas Goirand <zigo@debian.org>  Fri, 02 Jan 2015 18:44:17 +0100
+
 murano-dashboard (2014.2-2) experimental; urgency=medium
 
   * Added Add_horizon_plugin_configuration_file.patch, and pacakge
