@@ -29,10 +29,6 @@ class TestSuiteSmoke(base.UITestCase):
         self.go_to_submenu('Applications')
         self.check_panel_is_present('Applications')
 
-    def test_smoke_statistics_panel(self):
-        self.go_to_submenu('Statistics')
-        self.check_panel_is_present('Murano Status')
-
     def test_smoke_images_panel(self):
         self.navigate_to('Manage')
         self.go_to_submenu('Images')
@@ -44,7 +40,7 @@ class TestSuiteSmoke(base.UITestCase):
         self.check_panel_is_present('Package Definitions')
 
 
-class TestSuiteEnvironment(base.EnvironmentTestCase):
+class TestSuiteEnvironment(base.ApplicationTestCase):
     def test_create_delete_environment(self):
         """Test check ability to create and delete environment
 
@@ -75,6 +71,24 @@ class TestSuiteEnvironment(base.EnvironmentTestCase):
         self.edit_environment(old_name='test_edit_env', new_name='edited_env')
         self.check_element_on_page(by.By.LINK_TEXT, 'edited_env')
         self.check_element_not_on_page(by.By.LINK_TEXT, 'test_edit_env')
+
+    def test_create_env_from_the_catalog_page(self):
+        """Test create environment from the catalog page
+
+        Scenario:
+           1. Go the the Applications page
+           2. Press 'Create Env'
+           3. Make sure that it's possible to chose just created environment
+        """
+        self.go_to_submenu('Applications')
+        self.driver.find_elements_by_xpath(
+            "//a[contains(text(), 'Create Env')]")[0].click()
+        self.fill_field(by.By.ID, 'id_name', 'TestEnv')
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.wait_for_alert_message()
+        self.check_element_on_page(
+            by.By.XPATH,
+            "//div[@id='environment_switcher']/a[contains(text(), 'TestEnv')]")
 
 
 class TestSuiteImage(base.ImageTestCase):
@@ -231,7 +245,7 @@ class TestSuiteFields(base.FieldsTestCase):
 
         self.fill_field(by.By.NAME, '0-name', value='AppL1')
         self.driver.find_element_by_xpath(c.ButtonSubmit).click()
-        self.wait_element_is_clickable(by.By.LINK_TEXT, '+')
+        self.wait_element_is_clickable(by.By.XPATH, c.ButtonSubmit)
 
     def test_check_required_field(self):
         """Test checks that fields with parameter 'required=True' in yaml form
@@ -256,7 +270,7 @@ class TestSuiteFields(base.FieldsTestCase):
         self.fill_field(by.By.NAME, "0-name", "name")
         self.driver.find_element_by_xpath(c.ButtonSubmit).click()
 
-        self.wait_element_is_clickable(by.By.LINK_TEXT, '+')
+        self.wait_element_is_clickable(by.By.XPATH, c.ButtonSubmit)
 
     def test_password_validation(self):
         """Test checks password validation
@@ -283,7 +297,7 @@ class TestSuiteFields(base.FieldsTestCase):
         self.check_error_message_is_absent('Passwords do not match')
         self.fill_field(by.By.NAME, '0-adminPassword', value='P@ssw0rd')
         self.driver.find_element_by_xpath(c.ButtonSubmit).click()
-        self.wait_element_is_clickable(by.By.LINK_TEXT, '+')
+        self.wait_element_is_clickable(by.By.XPATH, c.ButtonSubmit)
 
 
 class TestSuiteApplications(base.ApplicationTestCase):
@@ -327,7 +341,8 @@ class TestSuiteApplications(base.ApplicationTestCase):
         self.fill_field(by.By.NAME, "0-name", "app1")
         self.driver.find_element_by_xpath(c.ButtonSubmit).click()
 
-        self.driver.find_element_by_link_text('+').click()
+        self.driver.find_element_by_css_selector(
+            'form i.fa-plus-circle').click()
         self.fill_field(by.By.NAME, "0-name", "app2")
 
     def test_creation_deletion_app(self):
@@ -349,140 +364,12 @@ class TestSuiteApplications(base.ApplicationTestCase):
 
         self.driver.find_element_by_xpath(c.InputSubmit).click()
 
-        self.select_from_list('osImage', self.image.name)
+        self.select_from_list('osImage', self.image.id)
         self.driver.find_element_by_xpath(c.InputSubmit).click()
-        self.wait_element_is_clickable(by.By.LINK_TEXT, 'Add Component')
+        self.wait_element_is_clickable(by.By.ID, c.AddComponent)
         self.check_element_on_page(by.By.LINK_TEXT, 'TestA')
         self.delete_component('TestA')
         self.check_element_not_on_page(by.By.LINK_TEXT, 'TestA')
-
-    def test_modify_package_name(self):
-        """Test check ability to change name of the package
-
-        Scenario:
-            1. Navigate to 'Package Definitions' page
-            2. Select package and click on 'Modify Package'
-            3. Rename package
-        """
-        self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
-        self.select_action_for_package('PostgreSQL',
-                                       'modify_package')
-        self.fill_field(by.By.ID, 'id_name', 'PostgreSQL-modified')
-        self.driver.find_element_by_xpath(c.InputSubmit).click()
-        self.wait_for_alert_message()
-
-        self.check_element_on_page(by.By.XPATH,
-                                   c.AppPackageDefinitions.format(
-                                       'PostgreSQL-modified'))
-
-        self.select_action_for_package('PostgreSQL-modified',
-                                       'modify_package')
-        self.fill_field(by.By.ID, 'id_name', 'PostgreSQL')
-        self.driver.find_element_by_xpath(c.InputSubmit).click()
-
-        self.check_element_on_page(by.By.XPATH,
-                                   c.AppPackageDefinitions.format(
-                                       'PostgreSQL'))
-
-    def test_modify_package_add_tag(self):
-        """Test check ability to add file in composed service
-
-        Scenario:
-            1. Navigate to 'Package Definitions' page
-            2. Click on "Compose Service"  and create new service
-            3. Manage composed service: add file
-        """
-        self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
-        self.select_action_for_package('PostgreSQL',
-                                       'modify_package')
-
-        self.fill_field(by.By.ID, 'id_tags', 'TEST_TAG')
-        self.modify_package('tags', 'TEST_TAG')
-
-        self.navigate_to('Application_Catalog')
-        self.go_to_submenu('Applications')
-        self.select_and_click_action_for_app('details', self.postgre_id)
-        self.assertIn('TEST_TAG',
-                      self.driver.find_element_by_xpath(
-                          c.TagInDetails).text)
-
-    def test_download_package(self):
-        """Test check ability to download package from repository
-
-        Scenario:
-            1. Navigate to 'Package Definitions' page
-            2. Select PostgreSQL package and click on "More>Download Package"
-        """
-        self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
-
-        self.select_action_for_package('PostgreSQL', 'more')
-        self.select_action_for_package('PostgreSQL', 'download_package')
-
-    def test_check_toggle_enabled_package(self):
-        """Test check ability to make package active or inactive
-
-        Scenario:
-            1. Navigate to 'Package Definitions' page
-            2. Select some package and make it inactive ("More>Toggle Active")
-            3. Check that package is inactive
-            4. Select some package and make it active ("More>Toggle Active ")
-            5. Check that package is active
-        """
-        self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
-
-        self.select_action_for_package('PostgreSQL', 'more')
-        self.select_action_for_package('PostgreSQL', 'toggle_enabled')
-
-        self.check_package_parameter('PostgreSQL', 'Active', 'False')
-
-        self.select_action_for_package('PostgreSQL', 'more')
-        self.select_action_for_package('PostgreSQL', 'toggle_enabled')
-
-        self.check_package_parameter('PostgreSQL', 'Active', 'True')
-
-    def test_check_toggle_public_package(self):
-        """Test check ability to make package active or inactive
-
-        Scenario:
-            1. Navigate to 'Package Definitions' page
-            2. Select some package and make it inactive ("More>Toggle Public")
-            3. Check that package is unpublic
-            4. Select some package and make it active ("More>Toggle Public ")
-            5. Check that package is public
-        """
-        self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
-
-        self.select_action_for_package('PostgreSQL', 'more')
-        self.select_action_for_package('PostgreSQL', 'toggle_public_enabled')
-
-        self.check_package_parameter('PostgreSQL', 'Public', 'True')
-
-        self.select_action_for_package('PostgreSQL', 'more')
-        self.select_action_for_package('PostgreSQL', 'toggle_public_enabled')
-
-        self.check_package_parameter('PostgreSQL', 'Public', 'False')
-
-    def test_check_info_about_app(self):
-        """Test checks that information about app is available and truly.
-
-        Scenario:
-            1. Navigate to 'Application Catalog > Applications' panel
-            2. Choose some application and click on 'More info'
-            3. Verify info about application
-        """
-        self.go_to_submenu('Applications')
-        self.select_and_click_action_for_app('details', self.mockapp_id)
-
-        self.assertEqual('MockApp for webUI tests',
-                         self.driver.find_element_by_xpath(
-                             "//div[@class='app-description']").text)
-        self.driver.find_element_by_link_text('Requirements').click()
-        self.driver.find_element_by_link_text('License').click()
 
     def test_check_search_option(self):
         """Test checks that 'Search' option is operable.
@@ -565,12 +452,264 @@ class TestSuiteApplications(base.ApplicationTestCase):
             c.ButtonSubmit).click()
 
         self.driver.find_element_by_xpath(c.InputSubmit).click()
-        self.select_from_list('osImage', self.image.name)
+        self.select_from_list('osImage', self.image.id)
         self.driver.find_element_by_xpath(c.InputSubmit).click()
 
         self.driver.find_element_by_xpath(c.InputSubmit).click()
 
         self.check_element_on_page(by.By.LINK_TEXT, 'TestA')
+
+    def test_check_progress_bar(self):
+        """Test that progress bar appears only for 'Deploying' status
+
+        Scenario:
+            1. Navigate Applications and click MockApp 'Quick Deploy'
+            2. Check that for "Ready to deploy" state progress bar is not seen
+            3. Click deploy
+            4. Check that for "Deploying" status progress bar is seen
+        """
+        self.go_to_submenu('Applications')
+        self.select_and_click_action_for_app('quick-add', self.mockapp_id)
+        field_id = "{0}_0-name".format(self.mockapp_id)
+        self.fill_field(by.By.ID, field_id, value='TestApp')
+        self.driver.find_element_by_xpath(c.ButtonSubmit).click()
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.select_from_list('osImage', self.image.id)
+
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.check_element_on_page(by.By.XPATH,
+                                   c.Status.format('Ready to deploy'))
+        self.check_element_on_page(by.By.XPATH, c.CellStatus.format('up'))
+
+        self.driver.find_element_by_id('services__action_deploy_env').click()
+        self.check_element_on_page(by.By.XPATH,
+                                   c.Status.format('Deploying'))
+        self.check_element_on_page(by.By.XPATH, c.CellStatus.format('unknown'))
+        self.check_element_on_page(by.By.XPATH,
+                                   c.Status.format('Ready'),
+                                   sec=90)
+        self.check_element_on_page(by.By.XPATH, c.CellStatus.format('up'))
+
+    def test_check_overview_tab(self):
+        """Test check that created application overview tab browsed correctly
+
+        Scenario:
+            1. Navigate Applications and click MockApp 'Quick Deploy'
+            2. Click on application name to go to the detail page
+        """
+        app_name = 'NewTestApp'
+        self.add_app_to_env(self.mockapp_id, app_name)
+        self.driver.find_element_by_link_text(app_name).click()
+        self.check_element_on_page(
+            by.By.XPATH, "//dd[contains(text(), {0})]".format(app_name))
+
+    def test_check_actions_tab(self):
+        """Test check that action tab in deployed application is available
+        and actions are display in the corresponding tab
+
+        Scenario:
+            1. Navigate Applications and click MockApp 'Quick Deploy'
+            2. Click deploy
+            3. Wait 'Ready' status
+            4. Click on application
+            5. Check that 'Actions' tab is present
+            6. Click on 'Actions' tab
+            7. Check that application's actions are present
+        """
+        self.add_app_to_env(self.mockapp_id)
+        self.driver.find_element_by_id('services__action_deploy_env').click()
+
+        self.check_element_on_page(by.By.XPATH,
+                                   c.Status.format('Ready'),
+                                   sec=90)
+
+        self.driver.find_element_by_link_text('TestApp').click()
+        self.check_element_on_page(by.By.LINK_TEXT, 'Actions')
+        self.driver.find_element_by_link_text('Actions').click()
+
+        self.check_element_on_page(by.By.LINK_TEXT, 'deploy')
+
+    def test_check_info_about_app(self):
+        """Test checks that information about app is available and truly.
+
+        Scenario:
+            1. Navigate to 'Application Catalog > Applications' panel
+            2. Choose some application and click on 'More info'
+            3. Verify info about application
+        """
+        self.go_to_submenu('Applications')
+        self.select_and_click_action_for_app('details', self.mockapp_id)
+
+        self.assertEqual('MockApp for webUI tests',
+                         self.driver.find_element_by_xpath(
+                             "//div[@class='app-description']").text)
+        self.driver.find_element_by_link_text('Requirements').click()
+        self.driver.find_element_by_class_name('app_requirements')
+        self.driver.find_element_by_link_text('License').click()
+        self.driver.find_element_by_class_name('app_license')
+
+    def test_check_topology_page(self):
+        """Test checks that topology tab is available
+        and topology page displays correctly
+
+        Scenario:
+            1. Navigate Applications and click MockApp 'Quick Deploy'
+            2. Click deploy
+            3. Wait 'Ready' status
+            4. Click on 'Topology' tab
+            5. Check that status is 'Waiting for deployment' is displayed
+            6. Check that app logo is present on page
+        """
+        self.add_app_to_env(self.mockapp_id)
+        self.driver.find_element_by_link_text('Topology').click()
+
+        self.assertEqual(
+            'Status: Waiting for deployment',
+            self.driver.find_element_by_css_selector('#stack_box > p').text)
+
+        self.check_element_on_page(by.By.TAG_NAME, 'image')
+
+    def test_check_deployment_history(self):
+        """Test checks that deployment history tab is available
+        and deployment logs are present and correctly
+
+        Scenario:
+            1. Navigate Applications and click MockApp 'Quick Deploy'
+            2. Click deploy
+            3. Wait 'Ready' status
+            4. Click on 'Deployment History' tab
+            5. Click 'Show Details' button
+            6. Click 'Logs' button
+            7. Check that app deployment message is present in logs
+        """
+        self.add_app_to_env(self.mockapp_id)
+        self.driver.find_element_by_id('services__action_deploy_env').click()
+
+        self.check_element_on_page(by.By.XPATH,
+                                   c.Status.format('Ready'),
+                                   sec=90)
+
+        self.driver.find_element_by_link_text('Deployment History').click()
+        self.driver.find_element_by_link_text('Show Details').click()
+        self.driver.find_element_by_link_text('Logs').click()
+
+        self.assertIn('Follow the white rabbit',
+                      self.driver.find_element_by_class_name('logs').text)
+
+
+class TestSuitePackages(base.PackageTestCase):
+    def test_modify_package_name(self):
+        """Test check ability to change name of the package
+
+        Scenario:
+            1. Navigate to 'Package Definitions' page
+            2. Select package and click on 'Modify Package'
+            3. Rename package
+        """
+        self.navigate_to('Manage')
+        self.go_to_submenu('Package Definitions')
+        self.select_action_for_package('PostgreSQL',
+                                       'modify_package')
+        self.fill_field(by.By.ID, 'id_name', 'PostgreSQL-modified')
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.wait_for_alert_message()
+
+        self.check_element_on_page(by.By.XPATH,
+                                   c.AppPackageDefinitions.format(
+                                       'PostgreSQL-modified'))
+
+        self.select_action_for_package('PostgreSQL-modified',
+                                       'modify_package')
+        self.fill_field(by.By.ID, 'id_name', 'PostgreSQL')
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.check_element_on_page(by.By.XPATH,
+                                   c.AppPackageDefinitions.format(
+                                       'PostgreSQL'))
+
+    def test_modify_package_add_tag(self):
+        """Test that new tag is shown in description
+
+        Scenario:
+            1. Navigate to 'Package Definitions' page
+            2. Click on "Modify Package" and add new tag
+            3. Got to the Application Catalog page
+            4. Check, that new tag is browsed in application description
+        """
+        self.navigate_to('Manage')
+        self.go_to_submenu('Package Definitions')
+        self.select_action_for_package('PostgreSQL',
+                                       'modify_package')
+
+        self.fill_field(by.By.ID, 'id_tags', 'TEST_TAG')
+        self.modify_package('tags', 'TEST_TAG')
+
+        self.navigate_to('Application_Catalog')
+        self.go_to_submenu('Applications')
+        self.select_and_click_action_for_app('details', self.postgre_id)
+        self.assertIn('TEST_TAG',
+                      self.driver.find_element_by_xpath(
+                          c.TagInDetails).text)
+
+    def test_download_package(self):
+        """Test check ability to download package from repository
+
+        Scenario:
+            1. Navigate to 'Package Definitions' page
+            2. Select PostgreSQL package and click on "More>Download Package"
+        """
+        self.navigate_to('Manage')
+        self.go_to_submenu('Package Definitions')
+
+        self.select_action_for_package('PostgreSQL', 'more')
+        self.select_action_for_package('PostgreSQL', 'download_package')
+
+    def test_check_toggle_enabled_package(self):
+        """Test check ability to make package active or inactive
+
+        Scenario:
+            1. Navigate to 'Package Definitions' page
+            2. Select some package and make it inactive ("More>Toggle Active")
+            3. Check that package is inactive
+            4. Select some package and make it active ("More>Toggle Active ")
+            5. Check that package is active
+        """
+        self.navigate_to('Manage')
+        self.go_to_submenu('Package Definitions')
+
+        self.select_action_for_package('PostgreSQL', 'more')
+        self.select_action_for_package('PostgreSQL', 'toggle_enabled')
+
+        self.check_package_parameter('PostgreSQL', 'Active', 'False')
+
+        self.select_action_for_package('PostgreSQL', 'more')
+        self.select_action_for_package('PostgreSQL', 'toggle_enabled')
+
+        self.check_package_parameter('PostgreSQL', 'Active', 'True')
+
+    def test_check_toggle_public_package(self):
+        """Test check ability to make package active or inactive
+
+        Scenario:
+            1. Navigate to 'Package Definitions' page
+            2. Select some package and make it inactive ("More>Toggle Public")
+            3. Check that package is unpublic
+            4. Select some package and make it active ("More>Toggle Public ")
+            5. Check that package is public
+        """
+        self.navigate_to('Manage')
+        self.go_to_submenu('Package Definitions')
+
+        self.select_action_for_package('PostgreSQL', 'more')
+        self.select_action_for_package('PostgreSQL', 'toggle_public_enabled')
+
+        self.check_package_parameter('PostgreSQL', 'Public', 'True')
+
+        self.select_action_for_package('PostgreSQL', 'more')
+        self.select_action_for_package('PostgreSQL', 'toggle_public_enabled')
+
+        self.check_package_parameter('PostgreSQL', 'Public', 'False')
 
     def test_modify_description(self):
         """Test check ability to change description of the package
@@ -593,60 +732,24 @@ class TestSuiteApplications(base.ApplicationTestCase):
                          self.driver.find_element_by_xpath(
                              c.MockAppDescr).text)
 
-    def test_check_progress_bar(self):
-        """Test that progress bar appears only for 'Deploy in progress'
+    def test_upload_package(self):
+        """Test package uploading via Package Definitions view.
+           Skip category selection step.
 
-        Scenario:
-            1. Navigate Applications and click MockApp 'Quick Deploy'
-            2. Check that for "Ready to deploy" state progress bar is not seen
-            3. Click deploy
-            4. Check that for "Deploy in progress" state progress bar is seen
         """
-        self.go_to_submenu('Applications')
-        self.select_and_click_action_for_app('quick-add', self.mockapp_id)
-        field_id = "{0}_0-name".format(self.mockapp_id)
-        self.fill_field(by.By.ID, field_id, value='TestApp')
-        self.driver.find_element_by_xpath(c.ButtonSubmit).click()
-        self.driver.find_element_by_xpath(c.InputSubmit).click()
-        self.select_from_list('osImage', self.image.name)
+        self.navigate_to('Manage')
+        self.go_to_submenu('Package Definitions')
 
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-package']")
+        el.send_keys(self.archive)
         self.driver.find_element_by_xpath(c.InputSubmit).click()
 
-        self.check_element_on_page(by.By.XPATH,
-                                   c.Status.format('Ready to deploy'))
-        self.check_element_on_page(by.By.XPATH, c.CellStatus.format('up'))
+        # No application data modification is needed
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
 
-        self.driver.find_element_by_css_selector(
-            '#services__action_deploy_env').click()
-        self.check_element_on_page(by.By.XPATH,
-                                   c.Status.format('Deploy in progress'))
-        self.check_element_on_page(by.By.XPATH, c.CellStatus.format('unknown'))
-        self.check_element_on_page(by.By.XPATH,
-                                   c.Status.format('Ready'),
-                                   sec=90)
-        self.check_element_on_page(by.By.XPATH, c.CellStatus.format('up'))
-
-    def test_check_actions_tab(self):
-        """Test check that action tab in deployed application is available
-        and actions are display in the corresponding tab
-
-        Scenario:
-            1. Navigate Applications and click MockApp 'Quick Deploy'
-            2. Click deploy
-            3. Wait 'Ready' status
-            4. Click on application
-            5. Check that 'Actions' tab is present
-            6. Click on 'Actions' tab
-            7. Check that application's actions are present
-        """
-        self.start_deploy(self.mockapp_id)
-
-        self.check_element_on_page(by.By.XPATH,
-                                   c.Status.format('Ready'),
-                                   sec=90)
-
-        self.driver.find_element_by_link_text('TestApp').click()
-        self.check_element_on_page(by.By.LINK_TEXT, 'Actions')
-        self.driver.find_element_by_link_text('Actions').click()
-
-        self.check_element_on_page(by.By.LINK_TEXT, 'deploy')
+        self.wait_for_alert_message()
+        self.check_element_on_page(
+            by.By.XPATH, c.AppPackageDefinitions.format(self.archive_name))

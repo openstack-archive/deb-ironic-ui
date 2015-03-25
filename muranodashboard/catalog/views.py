@@ -49,7 +49,7 @@ from muranodashboard.environments import consts
 
 LOG = logging.getLogger(__name__)
 ALL_CATEGORY_NAME = 'All'
-LATEST_APPS_QUEUE_LIMIT = 6
+LATEST_APPS_QUEUE_LIMIT = 3
 
 
 class DictToObj(object):
@@ -83,6 +83,16 @@ def get_environments_context(request):
     elif envs:
         context['environment'] = envs[0]
     return context
+
+
+def get_categories_list(request):
+    categories = []
+    with api.handled_exceptions(request):
+        client = api.muranoclient(request)
+        categories = client.packages.categories()
+    if ALL_CATEGORY_NAME not in categories:
+        categories.insert(0, ALL_CATEGORY_NAME)
+    return categories
 
 
 @auth_dec.login_required
@@ -284,9 +294,16 @@ class Wizard(views.ModalFormMixin, LazyWizard):
         fmt = utils.BlankFormatter()
         return fmt.format('{0}_{app_id}', base, **kwargs)
 
+    def get_form_prefix(self, step=None, form=None):
+        if step is None:
+            return self.steps.step0
+        else:
+            index0 = self.steps.all.index(step)
+            return str(index0)
+
     def done(self, form_list, **kwargs):
         app_id = kwargs['app_id']
-        app_name = services.get_service_name(self.request, app_id)
+        app_name = pkg_api.get_service_name(self.request, app_id)
 
         service = form_list[0].service
         attributes = service.extract_attributes()
@@ -427,18 +444,23 @@ class IndexView(list_view.ListView):
             query_params = {}
         category = self.get_current_category()
         search = self.request.GET.get('search')
+
         if search:
             query_params['search'] = search
         else:
             if category != ALL_CATEGORY_NAME:
                 query_params['category'] = category
 
+        query_params['order_by'] = self.request.GET.get('order_by', 'name')
+        query_params['sort_dir'] = self.request.GET.get('sort_dir', 'asc')
         return query_params
 
     def get_queryset(self):
         query_params = self.get_query_params(internal_query=True)
         marker = self.request.GET.get('marker')
-        sort_dir = self.request.GET.get('sort_dir')
+
+        sort_key = query_params['order_by']
+        sort_dir = query_params['sort_dir']
 
         packages = []
         with api.handled_exceptions(self.request):
@@ -447,7 +469,7 @@ class IndexView(list_view.ListView):
                 marker=marker, page_size=self.paginate_by, sort_dir=sort_dir)
 
         if sort_dir == 'desc':
-            packages.reverse()
+            packages.sort(key=lambda x: getattr(x, sort_key), reverse=True)
         return packages
 
     def get_template_names(self):
@@ -504,15 +526,8 @@ class IndexView(list_view.ListView):
     def get_context_data(self, **kwargs):
         context = super(IndexView, self).get_context_data(**kwargs)
 
-        categories = []
-        with api.handled_exceptions(self.request):
-            client = api.muranoclient(self.request)
-            categories = client.packages.categories()
-        if ALL_CATEGORY_NAME not in categories:
-            categories.insert(0, ALL_CATEGORY_NAME)
-
         context.update({
-            'categories': categories,
+            'categories': get_categories_list(self.request),
             'current_category': self.get_current_category(),
             'latest_list': clean_latest_apps(self.request)
         })

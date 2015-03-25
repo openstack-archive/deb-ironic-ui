@@ -39,8 +39,7 @@ STATUS_ID_DEPLOY_FAILURE = 'deploy failure'
 STATUS_ID_NEW = 'new'
 
 NO_ACTION_ALLOWED_STATUSES = (STATUS_ID_DEPLOYING,
-                              STATUS_ID_DELETING,
-                              STATUS_ID_DEPLOY_FAILURE)
+                              STATUS_ID_DELETING)
 
 DEP_STATUS_ID_RUNNING = 'running'
 DEP_STATUS_ID_RUNNING_W_ERRORS = 'running_w_errors'
@@ -68,8 +67,8 @@ STATUS_CHOICES = (
 
 STATUS_DISPLAY_CHOICES = (
     (STATUS_ID_READY, 'Ready'),
-    (STATUS_ID_DEPLOYING, 'Deploy in progress'),
-    (STATUS_ID_DELETING, 'Delete in progress'),
+    (STATUS_ID_DEPLOYING, 'Deploying'),
+    (STATUS_ID_DELETING, 'Deleting'),
     (STATUS_ID_PENDING, 'Ready to deploy'),
     (STATUS_ID_NEW, 'Ready to configure'),
     (STATUS_ID_DELETE_FAILURE, 'Delete FAILURE'),

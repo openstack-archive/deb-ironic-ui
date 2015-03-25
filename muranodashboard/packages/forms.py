@@ -14,7 +14,6 @@
 
 import logging
 
-from django.conf import settings
 from django.core.urlresolvers import reverse
 from django import forms
 from django.utils.translation import ugettext_lazy as _
@@ -24,35 +23,97 @@ from horizon import messages
 
 from muranoclient.common import exceptions as exc
 from muranodashboard import api
+from muranodashboard.packages import consts
 
 
 LOG = logging.getLogger(__name__)
 
-try:
-    MAX_FILE_SIZE_MB = int(getattr(settings, 'MAX_FILE_SIZE_MB', 5))
-except ValueError:
-    LOG.warning("MAX_FILE_SIZE_MB parameter has the incorrect value.")
-    MAX_FILE_SIZE_MB = 5
+IMPORT_TYPE_CHOICES = [
+    ('upload', _('File')),
+    ('by_name', _('Repository')),
+    ('by_url', _('URL')),
+]
+
+IMPORT_BUNDLE_TYPE_CHOICES = [
+    ('by_name', _('Repository')),
+    ('by_url', _('URL')),
+]
 
 
-class UploadPackageFileForm(forms.Form):
-    package = forms.FileField(label=_('Application .zip package'))
+class ImportBundleForm(forms.Form):
+    import_type = forms.ChoiceField(
+        label=_("Package Bundle Source"),
+        choices=IMPORT_BUNDLE_TYPE_CHOICES)
+
+    url = forms.URLField(
+        label=_("Bundle URL"),
+        required=False,
+        help_text=_('An external http/https URL to load the bundle from.'))
+    name = forms.CharField(
+        label=_("Bundle Name"),
+        required=False,
+        help_text=_("Name of the bundle i.e. 'bundle.json'"))
+
+    def clean(self):
+        cleaned_data = super(ImportBundleForm, self).clean()
+        import_type = cleaned_data.get('import_type')
+        if import_type == 'by_name' and not cleaned_data.get('name'):
+            msg = _('Please supply a package name')
+            raise forms.ValidationError(msg)
+        elif import_type == 'by_url' and not cleaned_data.get('url'):
+            msg = _('Please supply a package url')
+            raise forms.ValidationError(msg)
+        return cleaned_data
+
+
+class ImportPackageForm(forms.Form):
+    import_type = forms.ChoiceField(
+        label=_("Package Source"),
+        choices=IMPORT_TYPE_CHOICES)
+
+    url = horizon_forms.URLField(
+        label=_("Package URL"),
+        required=False,
+        help_text=_('An external http/https URL to load the package from.'))
+    name = horizon_forms.CharField(label=_("Package Name"), required=False)
+    version = horizon_forms.CharField(label=_("Package Version"),
+                                      required=False)
+
+    package = forms.FileField(label=_('Application Package'),
+                              required=False,
+                              help_text=_('A local zip file to upload'))
 
     def clean_package(self):
         package = self.cleaned_data.get('package')
         if package:
-            max_size_in_bytes = MAX_FILE_SIZE_MB << 20
+            max_size_in_bytes = consts.MAX_FILE_SIZE_MB << 20
             if package.size > max_size_in_bytes:
-                msg = _('It is restricted to upload files larger than '
-                        '{0} MB.').format(MAX_FILE_SIZE_MB)
+                msg = _('It is forbidden to upload files larger than '
+                        '{0} MB.').format(consts.MAX_FILE_SIZE_MB)
                 LOG.error(msg)
                 raise forms.ValidationError(msg)
         return package
 
+    def clean(self):
+        cleaned_data = super(ImportPackageForm, self).clean()
+        import_type = cleaned_data.get('import_type')
+        if import_type == 'upload' and not cleaned_data.get('package'):
+            msg = _('Please supply a package file')
+            LOG.error(msg)
+            raise forms.ValidationError(msg)
+        elif import_type == 'by_name' and not cleaned_data.get('name'):
+            msg = _('Please supply a package name')
+            LOG.error(msg)
+            raise forms.ValidationError(msg)
+        elif import_type == 'by_url' and not cleaned_data.get('url'):
+            msg = _('Please supply a package url')
+            LOG.error(msg)
+            raise forms.ValidationError(msg)
+        return cleaned_data
 
-class UpdatePackageForm(forms.Form):
+
+class PackageParamsMixin(forms.Form):
     name = forms.CharField(label=_('Name'))
-    categories = forms.MultipleChoiceField(label=_('Application Category'))
     tags = forms.CharField(label=_('Tags'),
                            required=False,
                            help_text='Provide comma-separated list of words,'
@@ -67,11 +128,34 @@ class UpdatePackageForm(forms.Form):
                                   widget=forms.Textarea,
                                   required=False)
 
-    def __init__(self, request, package, *args, **kwargs):
+    def set_initial(self, package):
+        self.fields['name'].initial = package.name
+        self.fields['tags'].initial = ', '.join(package.tags)
+        self.fields['is_public'].initial = package.is_public
+        self.fields['enabled'].initial = package.enabled
+        self.fields['description'].initial = package.description
+
+
+class UpdatePackageForm(PackageParamsMixin):
+    def __init__(self, *args, **kwargs):
+        package = kwargs.pop('package')
         super(UpdatePackageForm, self).__init__(*args, **kwargs)
+
+        self.set_initial(package)
+
+
+class ModifyPackageForm(PackageParamsMixin, horizon_forms.SelfHandlingForm):
+    def __init__(self, request, *args, **kwargs):
+        super(ModifyPackageForm, self).__init__(request, *args, **kwargs)
+
+        package = kwargs['initial']['package']
+        self.set_initial(package)
+
         if package.type == 'Application':
-            self.fields['categories'].choices = [('',
-                                                  'No categories available')]
+            self.fields['categories'] = forms.MultipleChoiceField(
+                label=_('Application Category'),
+                choices=[('', 'No categories available')],
+                required=False)
             try:
                 categories = api.muranoclient(request).packages.categories()
                 if categories:
@@ -87,21 +171,6 @@ class UpdatePackageForm(forms.Form):
                 exceptions.handle(request,
                                   _(msg),
                                   redirect=redirect)
-        else:
-            del self.fields['categories']
-        self.fields['name'].initial = package.name
-        self.fields['tags'].initial = ', '.join(package.tags)
-        self.fields['is_public'].initial = package.is_public
-        self.fields['enabled'].initial = package.enabled
-        self.fields['description'].initial = package.description
-
-
-class ModifyPackageForm(UpdatePackageForm, horizon_forms.SelfHandlingForm):
-    def __init__(self, *args, **kwargs):
-        package = kwargs['initial']['package']
-        request = kwargs['initial']['request']
-        super(ModifyPackageForm, self).__init__(request, package,
-                                                *args, **kwargs)
 
     def handle(self, request, data):
         app_id = self.initial.get('app_id')
@@ -116,4 +185,29 @@ class ModifyPackageForm(UpdatePackageForm, horizon_forms.SelfHandlingForm):
             redirect = reverse('horizon:murano:packages:index')
             exceptions.handle(request,
                               _('Unable to modify package'),
+                              redirect=redirect)
+
+
+class SelectCategories(forms.Form):
+
+    categories = forms.MultipleChoiceField(
+        label=_('Application Category'),
+        choices=[('', 'No categories available')],
+        required=False)
+
+    def __init__(self, *args, **kwargs):
+        request = kwargs.pop('request')
+        super(SelectCategories, self).__init__(*args, **kwargs)
+
+        try:
+            categories = api.muranoclient(request).packages.categories()
+            if categories:
+                self.fields['categories'].choices = [(c, c)
+                                                     for c in categories]
+        except (exc.HTTPException, Exception):
+            msg = 'Unable to get list of categories'
+            LOG.exception(msg)
+            redirect = reverse('horizon:murano:packages:index')
+            exceptions.handle(request,
+                              _(msg),
                               redirect=redirect)

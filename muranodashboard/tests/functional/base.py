@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import sys
+import testtools
 import time
 import urlparse
 
@@ -24,8 +25,7 @@ from selenium.common import exceptions as exc
 from selenium import webdriver
 import selenium.webdriver.common.by as by
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-import testtools
+from selenium.webdriver.support import ui
 
 import config.config as cfg
 from muranodashboard.tests.functional import consts
@@ -76,7 +76,22 @@ class UITestCase(BaseDeps):
         self.driver.quit()
 
         for env in self.murano_client.environments.list():
-            self.murano_client.environments.delete(env.id)
+            self.remove_environment(env.id)
+
+    def remove_environment(self, environment_id, timeout=180):
+        self.murano_client.environments.delete(environment_id)
+
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                self.murano_client.environments.get(environment_id)
+                time.sleep(1)
+            except Exception:
+                # TODO(smurashov): bug/1378764 replace Exception to NotFound
+                return
+        raise Exception(
+            'Environment {0} was not deleted in {1} seconds'.format(
+                environment_id, timeout))
 
     def take_screenshot(self, exception):
         """Taking screenshot on error
@@ -105,9 +120,9 @@ class UITestCase(BaseDeps):
         self.driver.find_element(by=by_find, value=field).send_keys(value)
 
     def get_element_id(self, el_name):
-        el = WebDriverWait(self.driver, 10).until(
+        el = ui.WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located(
-                (by.By.XPATH, ".//*[@data-display='{0}']".format(el_name))))
+                (by.By.XPATH, consts.AppPackageDefinitions.format(el_name))))
         path = el.get_attribute("id")
         return path.split('__')[-1]
 
@@ -128,7 +143,7 @@ class UITestCase(BaseDeps):
                           ".//*[@class='page-header']").text)
 
     def navigate_to(self, menu):
-        el = WebDriverWait(self.driver, 10).until(
+        el = ui.WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located(
                 (by.By.XPATH, getattr(consts, menu))))
         el.click()
@@ -138,13 +153,13 @@ class UITestCase(BaseDeps):
         locator = (by.By.XPATH,
                    "//select[contains(@name, '{0}')]"
                    "/option[@value='{1}']".format(list_name, value))
-        el = WebDriverWait(self.driver, 10).until(
+        el = ui.WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located(locator))
         el.click()
 
     def check_element_on_page(self, method, value, sec=10):
         try:
-            WebDriverWait(self.driver, sec).until(
+            ui.WebDriverWait(self.driver, sec).until(
                 EC.presence_of_element_located((method, value)))
         except exc.TimeoutException:
             self.fail("Element {0} is not preset on the page".format(value))
@@ -161,25 +176,46 @@ class UITestCase(BaseDeps):
         self.driver.implicitly_wait(30)
 
     def create_environment(self, env_name):
-        self.driver.find_element_by_id(
-            'murano__action_CreateEnvironment').click()
+        self.driver.find_element_by_id(consts.CreateEnvironment).click()
         self.fill_field(by.By.ID, 'id_name', env_name)
+        self.driver.find_element_by_id(consts.ConfirmCreateEnvironment).click()
+        self.wait_for_alert_message()
+
+    def delete_environment(self, env_name):
+        self.select_action_for_environment(env_name, 'delete')
+        self.driver.find_element_by_xpath(consts.ConfirmDeletion).click()
+        self.wait_for_alert_message()
+
+    def edit_environment(self, old_name, new_name):
+        self.select_action_for_environment(old_name, 'edit')
+        self.fill_field(by.By.ID, 'id_name', new_name)
         self.driver.find_element_by_xpath(consts.InputSubmit).click()
-        self.wait_element_is_clickable(by.By.LINK_TEXT, 'Add Component')
+        self.wait_for_alert_message()
+
+    def select_action_for_environment(self, env_name, action):
+        element_id = self.get_element_id(env_name)
+        more_button = consts.More.format(element_id)
+        self.driver.find_element_by_xpath(more_button).click()
+        btn_id = "murano__row_{0}__action_{1}".format(element_id, action)
+        self.driver.find_element_by_id(btn_id).click()
 
     def wait_for_alert_message(self):
         locator = (by.By.CSS_SELECTOR, 'div.alert-success')
         log.debug("Waiting for a success message")
-        WebDriverWait(self.driver, 2).until(
+        ui.WebDriverWait(self.driver, 2).until(
             EC.presence_of_element_located(locator))
-        self.driver.find_element_by_css_selector('a.close').click()
+        is_open = self.driver.find_elements(by.By.CSS_SELECTOR,
+                                            'a.close')
+        if is_open:
+            log.debug("Hide success message")
+            is_open[0].click()
 
     def wait_element_is_clickable(self, method, element):
-        return WebDriverWait(self.driver, 10).until(
+        return ui.WebDriverWait(self.driver, 10).until(
             EC.element_to_be_clickable((method, element)))
 
     def wait_for_sidebar_is_loaded(self):
-        WebDriverWait(self.driver, 10).until(
+        ui.WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located(
                 (by.By.CSS_SELECTOR, "div.sidebar dt.active")))
         time.sleep(0.5)
@@ -252,26 +288,6 @@ class ImageTestCase(PackageBase):
                                    consts.TestImage.format(self.image_title))
 
 
-class EnvironmentTestCase(UITestCase):
-    def delete_environment(self, env_name):
-        self.select_action_for_environment(env_name, 'delete')
-        self.driver.find_element_by_xpath(consts.ConfirmDeletion).click()
-        self.wait_for_alert_message()
-
-    def edit_environment(self, old_name, new_name):
-        self.select_action_for_environment(old_name, 'edit')
-        self.fill_field(by.By.ID, 'id_name', new_name)
-        self.driver.find_element_by_xpath(consts.InputSubmit).click()
-        self.wait_for_alert_message()
-
-    def select_action_for_environment(self, env_name, action):
-        element_id = self.get_element_id(env_name)
-        more_button = consts.More.format(element_id)
-        self.driver.find_element_by_xpath(more_button).click()
-        btn_id = "murano__row_{0}__action_{1}".format(element_id, action)
-        self.driver.find_element_by_id(btn_id).click()
-
-
 class FieldsTestCase(PackageBase):
     def check_error_message_is_present(self, error_message):
         self.driver.find_element_by_xpath(consts.ButtonSubmit).click()
@@ -309,7 +325,7 @@ class ApplicationTestCase(ImageTestCase):
                 by.By.XPATH, "//tr[@data-object-id='{0}']"
                              "//a[@data-toggle='dropdown']".format(package_id))
             el.click()
-            WebDriverWait(self.driver, 10).until(lambda s: s.find_element(
+            ui.WebDriverWait(self.driver, 10).until(lambda s: s.find_element(
                 by.By.XPATH,
                 ".//*[@id='packages__row_{0}__action_download_package']".
                 format(package_id)).is_displayed())
@@ -334,18 +350,38 @@ class ApplicationTestCase(ImageTestCase):
     def modify_package(self, param, value):
         self.fill_field(by.By.ID, 'id_{0}'.format(param), value)
         self.driver.find_element_by_xpath(consts.InputSubmit).click()
-        self.driver.refresh()
+        self.wait_for_alert_message()
 
-    def start_deploy(self, app_id, app_name='TestApp'):
+    def add_app_to_env(self, app_id, app_name='TestApp'):
         self.go_to_submenu('Applications')
         self.select_and_click_action_for_app('quick-add', app_id)
         field_id = "{0}_0-name".format(app_id)
         self.fill_field(by.By.ID, field_id, value=app_name)
         self.driver.find_element_by_xpath(consts.ButtonSubmit).click()
         self.driver.find_element_by_xpath(consts.InputSubmit).click()
-        self.select_from_list('osImage', self.image.name)
+        self.select_from_list('osImage', self.image.id)
 
         self.driver.find_element_by_xpath(consts.InputSubmit).click()
+        self.wait_for_alert_message()
 
-        self.driver.find_element_by_css_selector(
-            '#services__action_deploy_env').click()
+
+class PackageTestCase(ApplicationTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super(ApplicationTestCase, cls).setUpClass()
+        cls.archive_name = "ToUpload"
+        cls.archive = utils.compose_package(cls.archive_name,
+                                            consts.Manifest,
+                                            consts.PackageDir)
+
+    @classmethod
+    def tearDownClass(cls):
+        super(ApplicationTestCase, cls).tearDownClass()
+        if os.path.exists(consts.Manifest):
+            os.remove(consts.Manifest)
+        if os.path.exists(cls.archive):
+            os.remove(cls.archive)
+
+        for package in cls.murano_client.packages.list():
+            if package.name == cls.archive_name:
+                cls.murano_client.packages.delete(package.id)

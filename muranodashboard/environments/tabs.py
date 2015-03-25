@@ -12,6 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import json
 import logging
 
 from django.core.urlresolvers import reverse
@@ -19,6 +20,9 @@ from django.utils.datastructures import SortedDict
 from django.utils.translation import ugettext_lazy as _
 from horizon import exceptions
 from horizon import tabs
+from openstack_dashboard.api import heat as heat_api
+from openstack_dashboard.api import nova as nova_api
+
 
 from muranoclient.common import exceptions as exc
 from muranodashboard.environments import api
@@ -39,6 +43,35 @@ class OverviewTab(tabs.Tab):
         :param request:
         :return:
         """
+        def find_stack(name):
+            stacks, has_more, has_prev = heat_api.stacks_list(request)
+            for stack in stacks:
+                if name in stack.stack_name:
+                    stack_data = {'id': stack.id,
+                                  'name': stack.stack_name}
+                    return stack_data
+            if has_more:
+                find_stack()
+            return {}
+
+        def get_instance_and_stack(instance_data, request):
+            instance_name = instance_data['name']
+            stack_name = ''
+            instance_result_data = {}
+            stack_result_data = {}
+            instances, more = nova_api.server_list(request)
+
+            for instance in instances:
+                if instance_name in instance.name:
+                    instance_result_data = {'name': instance.name,
+                                            'id': instance.id}
+                    stack_name = instance.name.split('-' + instance_name)[0]
+                    break
+            # Add link to stack details page
+            if stack_name:
+                stack_result_data = find_stack(stack_name)
+            return instance_result_data, stack_result_data
+
         service_data = self.tab_group.kwargs['service']
 
         status_name = ''
@@ -66,6 +99,31 @@ class OverviewTab(tabs.Tab):
 
         if hasattr(service_data, 'floatingip'):
             detail_info['Floating IP'] = service_data.floatingip
+
+        #TODO(efedorova): Need to determine Instance subclass
+        #                 after it would be possible
+        if hasattr(service_data,
+                   'instance') and service_data['instance'] is not None:
+                instance, stack = get_instance_and_stack(
+                    service_data['instance'], request)
+                if instance:
+                    detail_info['Instance'] = instance
+                if stack:
+                    detail_info['Stack'] = stack
+
+        if hasattr(service_data,
+                   'instances') and service_data['instance'] is not None:
+                instances_for_template = []
+                stacks_for_template = []
+                for instance in service_data['instances']:
+                    instance, stack = get_instance_and_stack(instance, request)
+                    instances_for_template.append(instance)
+                    if stack:
+                        stacks_for_template.append(stack)
+                if instances_for_template:
+                    detail_info['Instances'] = instances_for_template
+                if stacks_for_template:
+                    detail_info['Stacks'] = stacks_for_template
 
         return {'service': detail_info}
 
@@ -136,6 +194,12 @@ class EnvironmentTopologyTab(tabs.Tab):
     slug = "topology"
     template_name = "services/_detail_topology.html"
     preload = False
+
+    def allowed(self, request):
+        if self.data.get('d3_data'):
+            if json.loads(self.data['d3_data'])['environment']['status']:
+                return True
+        return False
 
     def get_context_data(self, request):
         context = {}
