@@ -79,6 +79,9 @@ h3.heading_switcher a.btn {
   margin-left: auto;
   margin-right: auto;
   text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
 .draggable_app img {
@@ -90,20 +93,17 @@ h3.heading_switcher a.btn {
   margin-bottom: 0;
 }
 
-@media (max-width: 916px) {
-  .draggable_app .well, .no_apps.well {
-    min-height: 120px;
-  }
+.draggable_app .may_overflow {
+    margin-left: 14px;
 }
-
-@media (min-width: 916px) and (max-width: 1158px) {
+@media (min-width: 1020px) {
   .draggable_app .well, .no_apps.well {
     min-height: 105px;
   }
 }
 
-.has-feedback .form-control-feedback {
-  top: 10px;
+.search-icon {
+  line-height: 32px;
 }
 
 .draggable_app {
@@ -204,6 +204,15 @@ h3.link:hover {
 }
 h3.link .caret {
   border-top: 4px solid yellow !important;
+}
+.app .ribbon {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+}
+.draggable_app .ribbon{
+    position: absolute;
+    bottom: -4px;
 }
 .well:hover {
     float: none;

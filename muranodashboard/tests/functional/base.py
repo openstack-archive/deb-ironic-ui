@@ -66,7 +66,7 @@ class UITestCase(BaseDeps):
 
         self.driver = webdriver.Firefox()
         self.driver.maximize_window()
-        self.driver.get(cfg.common.horizon_url + '/')
+        self.driver.get(cfg.common.horizon_url + '/murano/environments/')
         self.driver.implicitly_wait(30)
         self.addOnException(self.take_screenshot)
         self.log_in()
@@ -175,8 +175,13 @@ class UITestCase(BaseDeps):
                                   " while it should't".format(value))
         self.driver.implicitly_wait(30)
 
-    def create_environment(self, env_name):
-        self.driver.find_element_by_id(consts.CreateEnvironment).click()
+    def create_environment(self, env_name, by_id=False):
+        if by_id:
+            self.driver.find_element_by_id(
+                'murano__action_CreateEnvironment').click()
+        else:
+            self.driver.find_element_by_css_selector(
+                consts.CreateEnvironment).click()
         self.fill_field(by.By.ID, 'id_name', env_name)
         self.driver.find_element_by_id(consts.ConfirmCreateEnvironment).click()
         self.wait_for_alert_message()
@@ -194,7 +199,7 @@ class UITestCase(BaseDeps):
 
     def select_action_for_environment(self, env_name, action):
         element_id = self.get_element_id(env_name)
-        more_button = consts.More.format(element_id)
+        more_button = consts.More.format('murano', element_id)
         self.driver.find_element_by_xpath(more_button).click()
         btn_id = "murano__row_{0}__action_{1}".format(element_id, action)
         self.driver.find_element_by_id(btn_id).click()
@@ -370,9 +375,17 @@ class PackageTestCase(ApplicationTestCase):
     def setUpClass(cls):
         super(ApplicationTestCase, cls).setUpClass()
         cls.archive_name = "ToUpload"
+        cls.alt_archive_name = "ModifiedAfterUpload"
         cls.archive = utils.compose_package(cls.archive_name,
                                             consts.Manifest,
                                             consts.PackageDir)
+
+    def tearDown(self):
+        super(PackageTestCase, self).tearDown()
+
+        for package in self.murano_client.packages.list(include_disabled=True):
+            if package.name in [self.archive_name, self.alt_archive_name]:
+                self.murano_client.packages.delete(package.id)
 
     @classmethod
     def tearDownClass(cls):
@@ -381,7 +394,3 @@ class PackageTestCase(ApplicationTestCase):
             os.remove(consts.Manifest)
         if os.path.exists(cls.archive):
             os.remove(cls.archive)
-
-        for package in cls.murano_client.packages.list():
-            if package.name == cls.archive_name:
-                cls.murano_client.packages.delete(package.id)

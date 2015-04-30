@@ -456,6 +456,28 @@ class IndexView(list_view.ListView):
         return query_params
 
     def get_queryset(self):
+        def filter_owned(packages):
+            current_tenant = self.request.session['token'].tenant['id']
+            return [p for p in packages
+                    if p.owner_id == current_tenant
+                    or p.is_public]
+
+        def perform_filtering(packages):
+            marker = None if not packages else packages[-1].id
+            filtered = filter_owned(packages)
+            if len(filtered) != self.paginate_by:
+                if self._more:
+                    removals = len(packages) - len(filtered)
+
+                    extra_packages, self._more = pkg_api.package_list(
+                        self.request, filters=query_params, paginate=True,
+                        marker=marker, page_size=removals, sort_dir=sort_dir,
+                        limit=removals)
+                    filtered.extend(extra_packages)
+                    filtered = perform_filtering(filtered)
+
+            return filtered
+
         query_params = self.get_query_params(internal_query=True)
         marker = self.request.GET.get('marker')
 
@@ -466,11 +488,17 @@ class IndexView(list_view.ListView):
         with api.handled_exceptions(self.request):
             packages, self._more = pkg_api.package_list(
                 self.request, filters=query_params, paginate=True,
-                marker=marker, page_size=self.paginate_by, sort_dir=sort_dir)
+                marker=marker, page_size=self.paginate_by, sort_dir=sort_dir,
+                limit=self.paginate_by)
+        # ToDo(efedorova): This a temporary solution.
+        # Filtering should be made on API side right after search by
+        #  'is_public' key will be supported
+        filtered_packages = perform_filtering(packages)
 
         if sort_dir == 'desc':
-            packages.sort(key=lambda x: getattr(x, sort_key), reverse=True)
-        return packages
+            filtered_packages.sort(key=lambda x: getattr(x, sort_key),
+                                   reverse=True)
+        return filtered_packages
 
     def get_template_names(self):
         return ['catalog/index.html']
@@ -480,6 +508,7 @@ class IndexView(list_view.ListView):
             return self._more
         else:
             query_params = self.get_query_params(internal_query=True)
+            query_params['sort_dir'] = 'asc'
             packages, more = pkg_api.package_list(
                 self.request, filters=query_params, paginate=True,
                 marker=self.get_marker(), page_size=1)
@@ -512,14 +541,19 @@ class IndexView(list_view.ListView):
 
     def prev_page_url(self):
         query_params = self.get_query_params()
-        query_params.update({'marker': self.get_marker(0),
-                             'sort_dir': 'desc'})
+        sort_dir = self.request.GET.get('sort_dir') or 'asc'
+        query_params['marker'] = self.get_marker(0) \
+            if sort_dir == 'asc' else self.get_marker()
+        query_params['sort_dir'] = 'desc'
         return '{0}?{1}'.format(reverse('horizon:murano:catalog:index'),
                                 http_utils.urlencode(query_params))
 
     def next_page_url(self):
         query_params = self.get_query_params()
-        query_params['marker'] = self.get_marker()
+        sort_dir = self.request.GET.get('sort_dir') or 'asc'
+        query_params['marker'] = self.get_marker() \
+            if sort_dir == 'asc' else self.get_marker(0)
+        query_params['sort_dir'] = 'asc'
         return '{0}?{1}'.format(reverse('horizon:murano:catalog:index'),
                                 http_utils.urlencode(query_params))
 
@@ -536,6 +570,7 @@ class IndexView(list_view.ListView):
         if search:
             context['search'] = search
 
+        context['tenant_id'] = self.request.session['token'].tenant['id']
         context.update(get_environments_context(self.request))
 
         return context

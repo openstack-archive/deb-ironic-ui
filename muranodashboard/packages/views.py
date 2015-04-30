@@ -12,7 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import json
 import logging
+import sys
 
 from django.contrib.formtools.wizard import views as wizard_views
 from django.core.files import storage
@@ -32,6 +34,7 @@ from openstack_dashboard.api import glance
 from muranodashboard import api
 from muranodashboard.api import packages as pkg_api
 from muranodashboard.catalog import views as catalog_views
+from muranodashboard.common import utils as muranodashboard_utils
 from muranodashboard.environments import consts
 from muranodashboard.packages import consts as packages_consts
 from muranodashboard.packages import forms
@@ -81,6 +84,12 @@ class PackageDefinitionsView(horizon_tables.DataTableView):
 
         return packages
 
+    def get_context_data(self, **kwargs):
+        context = super(PackageDefinitionsView,
+                        self).get_context_data(**kwargs)
+        context['tenant_id'] = self.request.session['token'].tenant['id']
+        return context
+
 
 class ImportBundleWizard(views.ModalFormMixin,
                          wizard_views.SessionWizardView):
@@ -111,10 +120,11 @@ class ImportBundleWizard(views.ModalFormMixin,
                     form.cleaned_data['name'],
                     path='/bundles/',
                     base_url=base_url,
+                    extension='.bundle',
                 )
 
             try:
-                bundle = muranoclient_utils.Bundle.fromFile(f)
+                bundle = muranoclient_utils.Bundle.from_file(f)
             except Exception as e:
                 msg = _("Bundle creation failed"
                         "Reason: {0}").format(e)
@@ -126,16 +136,15 @@ class ImportBundleWizard(views.ModalFormMixin,
             glance_client = glance.glanceclient(self.request, version='1')
 
             for package_spec in bundle.package_specs():
-                f = muranoclient_utils.to_url(
-                    package_spec.get('Name'),
-                    version=package_spec.get('Version'),
-                    path='/apps/',
-                    extension='.zip',
-                    base_url=base_url,
-                )
 
                 try:
-                    package = muranoclient_utils.Package.fromFile(f)
+                    package = muranoclient_utils.Package.from_location(
+                        package_spec['Name'],
+                        version=package_spec.get('Version'),
+                        url=package_spec.get('Url'),
+                        base_url=base_url,
+                        path=None,
+                    )
                 except Exception as e:
                     msg = _("Error {0} occurred while parsing package {1}")\
                         .format(e, package_spec.get('Name'))
@@ -146,10 +155,16 @@ class ImportBundleWizard(views.ModalFormMixin,
                 reqs = package.requirements(base_url=base_url)
                 for dep_name, dep_package in reqs.iteritems():
                     try:
-                        muranoclient_utils.ensure_images(
+                        imgs = muranoclient_utils.ensure_images(
                             glance_client=glance_client,
                             image_specs=dep_package.images(),
                             base_url=base_url)
+                        for img in imgs:
+                            msg = _("Added {0}, {1} image to glance").format(
+                                img['name'], img['id'],
+                            )
+                            messages.success(self.request, msg)
+                            LOG.info(msg)
                     except Exception as e:
                         msg = _("Error {0} occurred while installing "
                                 "images for {1}").format(e, dep_name)
@@ -168,6 +183,15 @@ class ImportBundleWizard(views.ModalFormMixin,
                     except exc.HTTPConflict:
                         msg = _("Package {0} already registered.").format(
                             dep_name)
+                        messages.warning(self.request, msg)
+                        LOG.exception(msg)
+                    except exc.HTTPException as e:
+                        reason = muranodashboard_utils.parse_api_error(
+                            getattr(e, 'details', ''))
+                        if not reason:
+                            raise
+                        msg = _("Package {0} upload failed. {1}").format(
+                            dep_name, reason)
                         messages.warning(self.request, msg)
                         LOG.exception(msg)
                     except Exception as e:
@@ -203,7 +227,7 @@ class ImportPackageWizard(views.ModalFormMixin,
         app_id = self.storage.get_step_data('upload')['package'].id
         # Remove package file from result data
         for key in ('package', 'import_type', 'url',
-                    'version', 'name'):
+                    'repo_version', 'repo_name'):
             del data[key]
 
         dep_pkgs = self.storage.get_step_data('upload').get(
@@ -225,6 +249,13 @@ class ImportPackageWizard(views.ModalFormMixin,
         try:
             data['tags'] = [t.strip() for t in data['tags'].split(',')]
             murano_client.packages.update(app_id, data)
+        except exc.HTTPForbidden:
+            msg = _("You are not allowed to change"
+                    " this properties of the package")
+            LOG.exception(msg)
+            exceptions.handle(
+                self.request, msg,
+                redirect=reverse('horizon:murano:packages:index'))
         except (exc.HTTPException, Exception):
             LOG.exception(_('Modifying package failed'))
             exceptions.handle(self.request,
@@ -255,8 +286,8 @@ class ImportPackageWizard(views.ModalFormMixin,
             elif import_type == 'by_url':
                 f = form.cleaned_data['url']
             elif import_type == 'by_name':
-                name = form.cleaned_data['name']
-                version = form.cleaned_data['version']
+                name = form.cleaned_data['repo_name']
+                version = form.cleaned_data['repo_version']
                 f = muranoclient_utils.to_url(
                     name, version=version,
                     path='/apps/',
@@ -265,7 +296,7 @@ class ImportPackageWizard(views.ModalFormMixin,
                 )
 
             try:
-                package = muranoclient_utils.Package.fromFile(f)
+                package = muranoclient_utils.Package.from_file(f)
                 name = package.manifest['FullName']
             except Exception as e:
                 msg = _("Package creation failed"
@@ -275,21 +306,30 @@ class ImportPackageWizard(views.ModalFormMixin,
                 raise exceptions.Http302(
                     reverse('horizon:murano:packages:index'))
 
-            reqs = package.requirements(base_url=base_url)
-            glance_client = glance.glanceclient(self.request, version='1')
-            original_package = reqs.pop(name)
-            step_data['dependencies'] = []
-            for dep_name, dep_package in reqs.iteritems():
+            def _ensure_images(name, package):
                 try:
-                    muranoclient_utils.ensure_images(
+                    imgs = muranoclient_utils.ensure_images(
                         glance_client=glance_client,
-                        image_specs=dep_package.images(),
+                        image_specs=package.images(),
                         base_url=base_url)
+                    for img in imgs:
+                        msg = _("Added {0}, {1} image to glance").format(
+                            img['name'], img['id'],
+                        )
+                        messages.success(self.request, msg)
+                        LOG.info(msg)
                 except Exception as e:
                     msg = _("Error {0} occurred while installing "
                             "images for {1}").format(e, name)
                     messages.error(self.request, msg)
                     LOG.exception(msg)
+
+            reqs = package.requirements(base_url=base_url)
+            glance_client = glance.glanceclient(self.request, version='1')
+            original_package = reqs.pop(name)
+            step_data['dependencies'] = []
+            for dep_name, dep_package in reqs.iteritems():
+                _ensure_images(dep_name, dep_package)
                 try:
                     files = {dep_name: dep_package.file()}
                     package = api.muranoclient(self.request).packages.create(
@@ -308,6 +348,10 @@ class ImportPackageWizard(views.ModalFormMixin,
                     LOG.exception(msg)
                     continue
 
+            # add main packages images
+            _ensure_images(name, original_package)
+
+            # import main package itself
             try:
                 files = {name: original_package.file()}
                 package = api.muranoclient(self.request).packages.create(
@@ -325,8 +369,30 @@ class ImportPackageWizard(views.ModalFormMixin,
                     self.request,
                     msg,
                     redirect=reverse('horizon:murano:packages:index'))
-            except Exception as e:
-                msg = _("Uploading package failed. {0}").format(e.message)
+            except exc.HTTPException as e:
+                reason = muranodashboard_utils.parse_api_error(
+                    getattr(e, 'details', ''))
+                if not reason:
+                    raise
+                LOG.exception(reason)
+                exceptions.handle(
+                    self.request,
+                    reason,
+                    redirect=reverse('horizon:murano:packages:index'))
+
+            except Exception as original_e:
+                exc_info = sys.exc_info()
+                reason = ''
+                if hasattr(original_e, 'details'):
+                    try:
+                        error = json.loads(original_e.details).get('error')
+                        if error:
+                            reason = error.get('message')
+                    except ValueError:
+                        # Let horizon operate with original exception
+                        raise exc_info[0], exc_info[1], exc_info[2]
+
+                msg = _('Uploading package failed. {0}').format(reason)
                 LOG.exception(msg)
                 exceptions.handle(
                     self.request,

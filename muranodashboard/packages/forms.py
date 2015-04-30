@@ -12,7 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import json
 import logging
+import sys
 
 from django.core.urlresolvers import reverse
 from django import forms
@@ -52,7 +54,7 @@ class ImportBundleForm(forms.Form):
     name = forms.CharField(
         label=_("Bundle Name"),
         required=False,
-        help_text=_("Name of the bundle i.e. 'bundle.json'"))
+        help_text=_("Name of the bundle."))
 
     def clean(self):
         cleaned_data = super(ImportBundleForm, self).clean()
@@ -75,13 +77,24 @@ class ImportPackageForm(forms.Form):
         label=_("Package URL"),
         required=False,
         help_text=_('An external http/https URL to load the package from.'))
-    name = horizon_forms.CharField(label=_("Package Name"), required=False)
-    version = horizon_forms.CharField(label=_("Package Version"),
-                                      required=False)
+    repo_name = horizon_forms.CharField(
+        label=_("Package Name"),
+        required=False,
+        help_text=_(
+            'Package name in the repository, usually a fully qualified name'),
+    )
+    repo_version = horizon_forms.CharField(
+        label=_("Package version"),
+        required=False)
 
     package = forms.FileField(label=_('Application Package'),
                               required=False,
                               help_text=_('A local zip file to upload'))
+
+    def __init__(self, *args, **kwargs):
+        super(ImportPackageForm, self).__init__(*args, **kwargs)
+        self.fields['repo_version'].widget.attrs['placeholder'] = \
+            _('Optional')
 
     def clean_package(self):
         package = self.cleaned_data.get('package')
@@ -101,7 +114,7 @@ class ImportPackageForm(forms.Form):
             msg = _('Please supply a package file')
             LOG.error(msg)
             raise forms.ValidationError(msg)
-        elif import_type == 'by_name' and not cleaned_data.get('name'):
+        elif import_type == 'by_name' and not cleaned_data.get('repo_name'):
             msg = _('Please supply a package name')
             LOG.error(msg)
             raise forms.ValidationError(msg)
@@ -180,11 +193,31 @@ class ModifyPackageForm(PackageParamsMixin, horizon_forms.SelfHandlingForm):
             result = api.muranoclient(request).packages.update(app_id, data)
             messages.success(request, _('Package modified.'))
             return result
-        except exc.HTTPException:
-            LOG.exception(_('Modifying package failed'))
+        except exc.HTTPForbidden:
+            msg = _("You are not allowed to perform this operation")
+            LOG.exception(msg)
+            exceptions.handle(
+                request,
+                msg,
+                redirect=reverse('horizon:murano:packages:index'))
+        except Exception as original_e:
+            reason = ''
+
+            exc_info = sys.exc_info()
+            if hasattr(original_e, 'details'):
+                try:
+                    error = json.loads(original_e.details).get('error')
+                    if error:
+                        reason = error.get('message')
+                except ValueError:
+                    # Let horizon operate with original exception
+                    raise exc_info[0], exc_info[1], exc_info[2]
+
+            msg = _('Failed to upload the package. {0}').format(reason)
+            LOG.exception(msg)
             redirect = reverse('horizon:murano:packages:index')
             exceptions.handle(request,
-                              _('Unable to modify package'),
+                              _(msg),
                               redirect=redirect)
 
 

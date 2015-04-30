@@ -432,7 +432,7 @@ class TestSuiteApplications(base.ApplicationTestCase):
         self.create_environment('env1')
         self.go_to_submenu('Environments')
         self.check_element_on_page(by.By.LINK_TEXT, 'env1')
-        self.create_environment('env2')
+        self.create_environment('env2', by_id=True)
         self.go_to_submenu('Environments')
         self.check_element_on_page(by.By.LINK_TEXT, 'env2')
 
@@ -504,18 +504,16 @@ class TestSuiteApplications(base.ApplicationTestCase):
         self.check_element_on_page(
             by.By.XPATH, "//dd[contains(text(), {0})]".format(app_name))
 
-    def test_check_actions_tab(self):
-        """Test check that action tab in deployed application is available
-        and actions are display in the corresponding tab
+    def test_ensure_actions(self):
+        """Checks that action is available for deployed application
 
         Scenario:
             1. Navigate Applications and click MockApp 'Quick Deploy'
             2. Click deploy
             3. Wait 'Ready' status
             4. Click on application
-            5. Check that 'Actions' tab is present
-            6. Click on 'Actions' tab
-            7. Check that application's actions are present
+            5. Check that defined action name is in the list of app 'actions'
+
         """
         self.add_app_to_env(self.mockapp_id)
         self.driver.find_element_by_id('services__action_deploy_env').click()
@@ -523,16 +521,16 @@ class TestSuiteApplications(base.ApplicationTestCase):
         self.check_element_on_page(by.By.XPATH,
                                    c.Status.format('Ready'),
                                    sec=90)
-
-        self.driver.find_element_by_link_text('TestApp').click()
-        self.check_element_on_page(by.By.LINK_TEXT, 'Actions')
-        self.driver.find_element_by_link_text('Actions').click()
-
-        self.check_element_on_page(by.By.LINK_TEXT, 'deploy')
+        el = self.wait_element_is_clickable(by.By.XPATH,
+                                            c.More.format('services', ''))
+        el.click()
+        self.driver.find_element_by_xpath(c.Action).click()
+        self.driver.find_element_by_css_selector('.modal-close button').click()
+        self.check_element_on_page(by.By.XPATH,
+                                   "//*[contains(text(), 'Completed')]")
 
     def test_check_info_about_app(self):
-        """Test checks that information about app is available and truly.
-
+        """Test checks that information about app is available and tr
         Scenario:
             1. Navigate to 'Application Catalog > Applications' panel
             2. Choose some application and click on 'More info'
@@ -753,3 +751,70 @@ class TestSuitePackages(base.PackageTestCase):
         self.wait_for_alert_message()
         self.check_element_on_page(
             by.By.XPATH, c.AppPackageDefinitions.format(self.archive_name))
+
+        # public
+        el = self.driver.find_element_by_xpath(
+            c.AppPackageDefinitions.format(self.archive_name) + '/td[3]')
+        self.assertEqual(el.text.strip().lower(), 'true')
+        # enabled
+        el = self.driver.find_element_by_xpath(
+            c.AppPackageDefinitions.format(self.archive_name) + '/td[4]')
+        self.assertEqual(el.text.strip().lower(), 'false')
+
+    def test_upload_package_modify(self):
+        """Test package modifying a package after uploading it."""
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Package Definitions')
+
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-package']")
+        el.send_keys(self.archive)
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        pkg_name = self.alt_archive_name
+        self.fill_field(by.By.CSS_SELECTOR,
+                        "input[name='modify-name']", pkg_name)
+        self.driver.find_element_by_css_selector(
+            "input[name=modify-is_public]"
+        ).click()
+        self.driver.find_element_by_css_selector(
+            "input[name=modify-enabled]"
+        ).click()
+
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.wait_for_alert_message()
+        self.check_element_on_page(
+            by.By.XPATH, c.AppPackageDefinitions.format(pkg_name))
+        # public
+        el = self.driver.find_element_by_xpath(
+            c.AppPackageDefinitions.format(pkg_name) + '/td[3]')
+        self.assertEqual(el.text.strip().lower(), 'false')
+        # enabled
+        el = self.driver.find_element_by_xpath(
+            c.AppPackageDefinitions.format(pkg_name) + '/td[4]')
+        self.assertEqual(el.text.strip().lower(), 'true')
+
+    def test_category_management(self):
+        """Test application category adds and deletes succesfully
+
+        Scenario:
+            1. Navigate to 'Categories' page
+            2. Click on 'Add Category' button
+            3. Create new category and check it's browsed in the table
+            4. Delete new category and check it's not browsed anymore
+        """
+        self.navigate_to('Manage')
+        self.go_to_submenu('Categories')
+        self.driver.find_element_by_id(c.AddCategory).click()
+        self.fill_field(by.By.XPATH, "//input[@id='id_name']", 'TEST_CATEGORY')
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.wait_for_alert_message()
+        delete_new_category_btn = c.DeleteCategory.format('TEST_CATEGORY')
+        self.driver.find_element_by_xpath(delete_new_category_btn).click()
+        self.driver.find_element_by_xpath(c.ConfirmDeletion).click()
+        self.wait_for_alert_message()
+        self.check_element_not_on_page(by.By.XPATH, delete_new_category_btn)

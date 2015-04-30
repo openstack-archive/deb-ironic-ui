@@ -5,10 +5,10 @@ pbr>=0.6,!=0.7,<1.0
 
 beautifulsoup4
 iso8601>=0.1.9
-six>=1.7.0
+six>=1.9.0
 PyYAML>=3.1.0
 
 # not listed in global requirements
 django-floppyforms>=1.1
 yaql>=0.2.3,<0.3
-python-muranoclient>=0.5.5
+python-muranoclient>=0.5.6

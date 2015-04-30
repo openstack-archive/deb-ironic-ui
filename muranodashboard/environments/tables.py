@@ -67,7 +67,7 @@ class CreateEnvironment(tables.LinkAction):
     icon = 'plus'
 
     def allowed(self, request, datum):
-        return True
+        return True if self.table.data else False
 
     def action(self, request, environment):
         try:
@@ -292,6 +292,41 @@ class ServicesTable(tables.DataTable):
 
     def get_categories_list(self):
         return catalog_views.get_categories_list(self.request)
+
+    def get_row_actions(self, datum):
+        actions = super(ServicesTable, self).get_row_actions(datum)
+        environment_id = self.kwargs['environment_id']
+        app_actions = []
+        for action_datum in api.extract_actions_list(datum):
+            _classes = ('murano_action',)
+
+            class CustomAction(tables.LinkAction):
+                name = action_datum['name']
+                verbose_name = action_datum['name']
+                url = reverse('horizon:murano:environments:start_action',
+                              args=(environment_id, action_datum['id']))
+                classes = _classes
+                table = self
+
+                def allowed(self, request, datum):
+                    status, version = _get_environment_status_and_version(
+                        request, self.table)
+                    if status in consts.NO_ACTION_ALLOWED_STATUSES:
+                        return False
+                    return True
+
+            bound_action = CustomAction()
+            if not bound_action.allowed(self.request, datum):
+                continue
+            bound_action.datum = datum
+            if issubclass(bound_action.__class__, tables.LinkAction):
+                bound_action.bound_url = bound_action.get_link_url(datum)
+            app_actions.append(bound_action)
+        if app_actions:
+            # Show native actions first (such as "Delete Component") and
+            # then add sorted application actions
+            actions.extend(sorted(app_actions, key=lambda x: x.name))
+        return actions
 
     class Meta:
         name = 'services'
