@@ -33,7 +33,7 @@ Build-Depends-Indep: openstack-dashboard (>= 2015.1~rc2),
                      python-six (>= 1.9.0),
                      python-testtools,
                      python-yaml,
-                     python-yaql,
+                     python-yaql (>= 0.2.6),
 Build-Conflicts: python-unittest2
 Standards-Version: 3.9.6
 Homepage: https://github.com/stackforge/murano-dashboard
@@ -51,7 +51,7 @@ Depends: openstack-dashboard (>= 2015.1~rc2),
          python-pbr,
          python-six (>= 1.9.0),
          python-yaml,
-         python-yaql,
+         python-yaql (>= 0.2.6),
          ${misc:Depends},
          ${python:Depends},
 Description: cloud-ready application catalog - dashboard plugin
