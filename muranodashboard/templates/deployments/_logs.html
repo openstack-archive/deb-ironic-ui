@@ -1,9 +1,12 @@
-{% load i18n %}
+{% load i18n static %}
+
+<link rel="stylesheet" href="{% static 'muranodashboard/css/reports.css' %}">
+
 <div class="clearfix">
   <h3 class="table-title">{% trans "Deployment Logs" %}</h3>
 </div>
-<pre class="logs">
-    {% autoescape off %}
-{{ reports }}
-    {% endautoescape  %}
-</pre>
+<div class="reports logs">
+    {% for report in reports %}
+        <div title="{{report.level|capfirst}}" class="report-{{report.level}}">{{report.created}} &mdash; {{report.text | urlize}}</div>
+    {% endfor %}
+</div>

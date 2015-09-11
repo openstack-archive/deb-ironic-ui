@@ -1,3 +1,18 @@
+/*    Copyright (c) 2013 Mirantis, Inc.
+
+    Licensed under the Apache License, Version 2.0 (the "License"); you may
+    not use this file except in compliance with the License. You may obtain
+    a copy of the License at
+
+         http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+    License for the specific language governing permissions and limitations
+    under the License.
+*/
+
 $(function() {
   $('.add_env').on('click', 'a', createEnv);
   $('.table_actions').on('click', 'a', createEnv);
@@ -9,8 +24,8 @@ $(function() {
       horizon.modals.spinner.modal('hide');
     }
 
-    var $tbody = $('table tbody'),
-        CREATE_URL = $(this).attr('href');
+    var $tbody = $('table tbody');
+    var CREATE_URL = $(this).attr('href');
 
     $.ajax({
       type: 'GET',
@@ -22,15 +37,15 @@ $(function() {
     });
 
     function drawWorkflowInline(data, validationFailed) {
-      var $form = $(data).find('form'),
-          $name = $form.find('div.form-group');
-
+      var $form = $(data).find('form');
+      var $name = $form.find('div.form-group');
+      $name.addClass("col-md-6");
       if ( validationFailed ) {
         $tbody.find('tr.new_env').remove();
       }
 
       var $newEnvTr = $('<tr class="new_env">' +
-      '<td id="input_create_env" class="normal_column"></td>' +
+      '<td id="input_create_env" class="normal_column row"></td>' +
       '<td class="normal_column">New</td>' +
       '<td class="actions_column">' +
       '<div class="btn-group">' +
@@ -43,7 +58,7 @@ $(function() {
       $emptyRow.hide();
       $newEnvTr.prependTo($tbody);
 
-      $name.find('input#id_name').focus()
+      $name.find('input#id_name').focus();
 
       $('button#cancel_create_env').on('click', function(ev) {
         $newEnvTr.remove();
@@ -63,7 +78,7 @@ $(function() {
             $newEnvTr.remove();
             hideSpinner();
             horizon.alert('error',
-                'There was an error submitting the form. Please try again.')
+                'There was an error submitting the form. Please try again.');
           },
           success: function(data, status, xhr) {
             if ( data === '' ) {

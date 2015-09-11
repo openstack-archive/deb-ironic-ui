@@ -21,8 +21,11 @@ import urlparse
 from glanceclient import client as gclient
 from keystoneclient.v2_0 import client as ksclient
 from muranoclient import client as mclient
+from oslo_log import handlers
+from oslo_log import log
 from selenium.common import exceptions as exc
 from selenium import webdriver
+from selenium.webdriver.common.action_chains import ActionChains
 import selenium.webdriver.common.by as by
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support import ui
@@ -31,9 +34,9 @@ import config.config as cfg
 from muranodashboard.tests.functional import consts
 from muranodashboard.tests.functional import utils
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
-log.addHandler(logging.StreamHandler())
+logger = log.getLogger(__name__).logger
+logger.level = logging.DEBUG
+logger.addHandler(handlers.ColorHandler())
 
 if sys.version_info >= (2, 7):
     class BaseDeps(testtools.TestCase):
@@ -66,7 +69,7 @@ class UITestCase(BaseDeps):
 
         self.driver = webdriver.Firefox()
         self.driver.maximize_window()
-        self.driver.get(cfg.common.horizon_url + '/murano/environments/')
+        self.driver.get(cfg.common.horizon_url + '/murano/environments')
         self.driver.implicitly_wait(30)
         self.addOnException(self.take_screenshot)
         self.log_in()
@@ -102,7 +105,7 @@ class UITestCase(BaseDeps):
 
         """
         name = self._testMethodName
-        log.exception('{0} failed'.format(name))
+        logger.error('{0} failed'.format(name))
         screenshot_dir = './screenshots'
         if not os.path.exists(screenshot_dir):
             os.makedirs(screenshot_dir)
@@ -113,7 +116,9 @@ class UITestCase(BaseDeps):
         self.fill_field(by.By.ID, 'id_username', cfg.common.user)
         self.fill_field(by.By.ID, 'id_password', cfg.common.password)
         self.driver.find_element_by_xpath("//button[@type='submit']").click()
-        self.driver.find_element_by_xpath(consts.Murano).click()
+        murano = self.driver.find_element_by_xpath(consts.Murano)
+        if 'collapsed' in murano.get_attribute('class'):
+            murano.click()
 
     def fill_field(self, by_find, field, value):
         self.driver.find_element(by=by_find, value=field).clear()
@@ -146,7 +151,8 @@ class UITestCase(BaseDeps):
         el = ui.WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located(
                 (by.By.XPATH, getattr(consts, menu))))
-        el.click()
+        if 'collapsed' in el.get_attribute('class'):
+            el.click()
         self.wait_for_sidebar_is_loaded()
 
     def select_from_list(self, list_name, value):
@@ -192,10 +198,29 @@ class UITestCase(BaseDeps):
         self.wait_for_alert_message()
 
     def edit_environment(self, old_name, new_name):
-        self.select_action_for_environment(old_name, 'edit')
-        self.fill_field(by.By.ID, 'id_name', new_name)
-        self.driver.find_element_by_xpath(consts.InputSubmit).click()
-        self.wait_for_alert_message()
+        el_td = self.driver.find_element_by_css_selector(
+            'tr[data-display="{0}"] td:first-of-type'.format(old_name))
+        el_pencil = el_td.find_element_by_css_selector(
+            'button.ajax-inline-edit')
+
+        # hover to make pencil visible
+        hover = ActionChains(self.driver).move_to_element(el_td)
+        hover.perform()
+        el_pencil.click()
+
+        # fill in inline input
+        el_inline_input = self.driver.find_element_by_css_selector(
+            'tr[data-display="{0}"] '.format(old_name) +
+            'td:first-of-type .inline-edit-form input')
+        el_inline_input.clear()
+        el_inline_input.send_keys(new_name)
+
+        # click submit
+        el_submit = self.driver.find_element_by_css_selector(
+            'tr[data-display="{0}"] '.format(old_name) +
+            'td:first-of-type .inline-edit-actions button[type="submit"]')
+        el_submit.click()
+        # there is no alert message
 
     def select_action_for_environment(self, env_name, action):
         element_id = self.get_element_id(env_name)
@@ -206,14 +231,9 @@ class UITestCase(BaseDeps):
 
     def wait_for_alert_message(self):
         locator = (by.By.CSS_SELECTOR, 'div.alert-success')
-        log.debug("Waiting for a success message")
+        logger.debug("Waiting for a success message")
         ui.WebDriverWait(self.driver, 2).until(
             EC.presence_of_element_located(locator))
-        is_open = self.driver.find_elements(by.By.CSS_SELECTOR,
-                                            'a.close')
-        if is_open:
-            log.debug("Hide success message")
-            is_open[0].click()
 
     def wait_element_is_clickable(self, method, element):
         return ui.WebDriverWait(self.driver, 10).until(
@@ -222,7 +242,7 @@ class UITestCase(BaseDeps):
     def wait_for_sidebar_is_loaded(self):
         ui.WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located(
-                (by.By.CSS_SELECTOR, "div.sidebar dt.active")))
+                (by.By.CSS_SELECTOR, "div#sidebar li.active")))
         time.sleep(0.5)
 
 
@@ -274,7 +294,7 @@ class ImageTestCase(PackageBase):
                                              is_public=True,
                                              properties=property)
         except Exception as e:
-            log.exception("Unable to create or update image in Glance")
+            logger.error("Unable to create or update image in Glance")
             raise e
         return image
 
@@ -288,7 +308,7 @@ class ImageTestCase(PackageBase):
         self.select_from_list('image', self.image.id)
         self.fill_field(by.By.ID, 'id_title', self.image_title)
         self.select_from_list('type', 'linux')
-        self.select_and_click_element('Mark')
+        self.select_and_click_element('Mark Image')
         self.check_element_on_page(by.By.XPATH,
                                    consts.TestImage.format(self.image_title))
 
@@ -307,8 +327,8 @@ class FieldsTestCase(PackageBase):
             self.driver.find_element_by_xpath(
                 consts.ErrorMessage.format(error_message))
         except (exc.NoSuchElementException, exc.ElementNotVisibleException):
-            log.info("Message {0} is not"
-                     " present on the page".format(error_message))
+            logger.info("Message {0} is not"
+                        " present on the page".format(error_message))
 
         self.driver.implicitly_wait(30)
 
@@ -323,8 +343,7 @@ class ApplicationTestCase(ImageTestCase):
         el.click()
         self.wait_for_alert_message()
 
-    def select_action_for_package(self, package, action):
-        package_id = self.get_element_id(package)
+    def select_action_for_package(self, package_id, action):
         if action == 'more':
             el = self.wait_element_is_clickable(
                 by.By.XPATH, "//tr[@data-object-id='{0}']"
@@ -339,10 +358,9 @@ class ApplicationTestCase(ImageTestCase):
                 ".//*[@id='packages__row_{0}__action_{1}']".
                 format(package_id, action)).click()
 
-    def check_package_parameter(self, package, column, value):
+    def check_package_parameter(self, package_id, column, value):
         columns = {'Active': 3, 'Public': 4}
 
-        package_id = self.get_element_id(package)
         column_num = str(columns[column])
 
         column_element = self.driver.find_element_by_xpath(

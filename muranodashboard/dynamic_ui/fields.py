@@ -12,9 +12,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import ast
 import copy
 import json
-import logging
 import netaddr
 import re
 
@@ -23,28 +23,31 @@ from django.core import validators as django_validator
 from django import forms
 from django.http import Http404
 from django.template import defaultfilters
-from django.template import loader
+from django.utils import html
 from django.utils.translation import ugettext_lazy as _
-import floppyforms
 from horizon import exceptions
 from horizon import forms as hz_forms
 from horizon import messages
-from horizon import tables
 from openstack_dashboard.api import glance
 from openstack_dashboard.api import nova
+from oslo_log import log as logging
 import yaql
 
 from muranoclient.common import exceptions as muranoclient_exc
 from muranodashboard.api import packages as pkg_api
+from muranodashboard.common import net
 from muranodashboard.environments import api as env_api
-from muranodashboard.openstack.common import versionutils
+
+from oslo_log import versionutils
 
 
 LOG = logging.getLogger(__name__)
 
 
 def with_request(func):
-    """The decorator is meant to be used together with `UpdatableFieldsForm':
+    """Injects request into func
+
+    The decorator is meant to be used together with `UpdatableFieldsForm':
     apply it to the `update' method of fields inside that form.
     """
     def update(self, initial, request=None, **kwargs):
@@ -69,11 +72,11 @@ def with_request(func):
 def make_yaql_validator(validator_property):
     """Field-level validator uses field's value as its '$' root object."""
     expr = validator_property['expr'].spec
-    message = _(validator_property.get('message', ''))
+    message = validator_property.get('message', '')
 
     def validator_func(value):
         context = yaql.create_context()
-        context.set_data(value)
+        context['$'] = value
         if not expr.evaluate(context=context):
             raise forms.ValidationError(message)
 
@@ -146,12 +149,19 @@ class RawProperty(object):
         return property(_get, _set, _del)
 
 
+FIELD_ARGS_TO_ESCAPE = ['help_text', 'initial', 'description', 'label']
+
+
 class CustomPropertiesField(forms.Field):
     def __init__(self, description=None, description_title=None,
                  *args, **kwargs):
         self.description = description
         self.description_title = (description_title or
                                   unicode(kwargs.get('label', '')))
+
+        for arg in FIELD_ARGS_TO_ESCAPE:
+            if kwargs.get(arg):
+                kwargs[arg] = html.escape(unicode(kwargs[arg]))
 
         validators = []
         for validator in kwargs.get('validators', []):
@@ -221,7 +231,7 @@ class PasswordField(CharField):
                     self.label, defaultfilters.pluralize(2)))
 
     class PasswordInput(forms.PasswordInput):
-        class Media:
+        class Media(object):
             js = ('muranodashboard/js/passwordfield.js',)
 
     def __init__(self, label, *args, **kwargs):
@@ -267,183 +277,6 @@ class PasswordField(CharField):
 
 class IntegerField(forms.IntegerField, CustomPropertiesField):
     pass
-
-
-class Column(tables.Column):
-    template_name = 'common/form-fields/data-grid/input.html'
-
-    def __init__(self, transform, table_name=None, **kwargs):
-        if hasattr(self, 'template_name'):
-            def _transform(datum):
-                context = {'data': getattr(datum, self.name, None),
-                           'row_index': str(datum.id),
-                           'table_name': table_name,
-                           'column_name': self.name}
-                return loader.render_to_string(self.template_name, context)
-            _transform.__name__ = transform
-            transform = _transform
-        super(Column, self).__init__(transform, **kwargs)
-
-
-class CheckColumn(Column):
-    template_name = 'common/form-fields/data-grid/checkbox.html'
-
-
-class RadioColumn(Column):
-    template_name = 'common/form-fields/data-grid/radio.html'
-
-
-# FixME: we need to have separated object until find out way to use the same
-# code for MS SQL Cluster datagrid
-class Object(object):
-    def __init__(self, id, **kwargs):
-        self.id = id
-        for key, value in kwargs.iteritems():
-            setattr(self, key, value)
-
-    def as_dict(self):
-        item = {}
-        for key, value in self.__dict__.iteritems():
-            if key != 'id':
-                item[key] = value
-        return item
-
-
-def DataTableFactory(name, columns):
-    class Object(object):
-        row_name_re = re.compile(r'.*\{0}.*')
-
-        def __init__(self, id, **kwargs):
-            self.id = id
-            for key, value in kwargs.iteritems():
-                if isinstance(value, basestring) and \
-                        re.match(self.row_name_re, value):
-                    setattr(self, key, value.format(id))
-                else:
-                    setattr(self, key, value)
-
-    class DataTableBase(tables.DataTable):
-        def __init__(self, request, data, **kwargs):
-            if len(data) and isinstance(data[0], dict):
-                objects = [Object(i, **item)
-                           for (i, item) in enumerate(data, 1)]
-            else:
-                objects = data
-            super(DataTableBase, self).__init__(request, objects, **kwargs)
-
-    class Meta:
-        template = 'common/form-fields/data-grid/data_table.html'
-        name = ''
-        footer = False
-
-    attrs = dict((col_id, cls(col_id, verbose_name=col_name, table_name=name))
-                 for (col_id, cls, col_name) in columns)
-    attrs['Meta'] = Meta
-    return tables.base.DataTableMetaclass('DataTable', (DataTableBase,), attrs)
-
-
-class TableWidget(floppyforms.widgets.Input):
-    template_name = 'common/form-fields/data-grid/table_field.html'
-    delimiter_re = re.compile('([\w-]*)@@([0-9]*)@@([\w-]*)')
-    types = {'label': Column,
-             'radio': RadioColumn,
-             'checkbox': CheckColumn}
-
-    def __init__(self, columns_spec=None, table_class=None, js_buttons=True,
-                 min_value=None, max_value=None, max_sync=None,
-                 *args, **kwargs):
-        assert columns_spec is not None or table_class is not None
-        self.columns = []
-        if columns_spec:
-            for spec in columns_spec:
-                name = spec['column_name']
-                self.columns.append((name,
-                                     self.types[spec['column_type']],
-                                     spec.get('title', None) or name.title()))
-        self.table_class = table_class
-        self.js_buttons = js_buttons
-        self.min_value = min_value
-        self.max_value = max_value
-        self.max_sync = max_sync
-        # FixME: we need to use this hack because TableField passes all kwargs
-        # to TableWidget
-        for kwarg in ('widget', 'description', 'description_title'):
-            kwargs.pop(kwarg, None)
-        super(TableWidget, self).__init__(*args, **kwargs)
-
-    def get_context(self, name, value, attrs=None):
-        ctx = super(TableWidget, self).get_context_data()
-        if value:
-            if self.table_class:
-                cls = self.table_class
-            else:
-                cls = DataTableFactory(name, self.columns)
-            ctx.update({
-                'data_table': cls(self.request, value),
-                'js_buttons': self.js_buttons,
-                'min_value': self.min_value,
-                'max_value': self.max_value,
-                'max_sync': self.max_sync
-            })
-        return ctx
-
-    def value_from_datadict(self, data, files, name):
-        def extract_value(row_key, col_id, col_cls):
-            if col_cls == CheckColumn:
-                val = data.get("{0}@@{1}@@{2}".format(name, row_key, col_id),
-                               False)
-                return val and val == 'on'
-            elif col_cls == RadioColumn:
-                row_id = data.get("{0}@@@@{1}".format(name, col_id), False)
-                return row_id == row_key
-            else:
-                return data.get("{0}@@{1}@@{2}".format(
-                    name, row_key, col_id), None)
-
-        def extract_keys():
-            keys = set()
-            regexp = re.compile('^{name}@@([^@]*)@@.*$'.format(name=name))
-            for key in data.iterkeys():
-                match = re.match(regexp, key)
-                if match and match.group(1):
-                    keys.add(match.group(1))
-            return keys
-
-        items = []
-        if self.table_class:
-            columns = [(_name, column.__class__, unicode(column.verbose_name))
-                       for (_name, column)
-                       in self.table_class.base_columns.items()]
-        else:
-            columns = self.columns
-
-        for row_key in extract_keys():
-            item = {}
-            for column_id, column_instance, column_name in columns:
-                value = extract_value(row_key, column_id, column_instance)
-                item[column_id] = value
-            items.append(Object(row_key, **item))
-
-        return items
-
-    class Media:
-        css = {'all': ('muranodashboard/css/tablefield.css',)}
-
-
-class TableField(CustomPropertiesField):
-    def __init__(self, columns=None, label=None, table_class=None,
-                 initial=None,
-                 **kwargs):
-        widget = TableWidget(columns, table_class, **kwargs)
-        super(TableField, self).__init__(
-            label=label, widget=widget, initial=initial)
-
-    @with_request
-    def update(self, request, **kwargs):
-        self.widget.request = request
-
-    def clean(self, objects):
-        return [obj.as_dict() for obj in objects]
 
 
 class ChoiceField(forms.ChoiceField, CustomPropertiesField):
@@ -496,7 +329,32 @@ class KeyPairChoiceField(DynamicChoiceField):
             self.choices.append((keypair.name, keypair.name))
 
 
+# NOTE(kzaitsev): for transform to work correctly on horizon SelectWidget
+# Choice has to be non-string
+class Choice(object):
+    """A choice that allows disabling specific choices in a SelectWidget."""
+    def __init__(self, title, enabled):
+        self.title = title
+        self.enabled = enabled
+
+
+def _get_title(data):
+    if isinstance(data, Choice):
+        return data.title
+    return data
+
+
+def _disable_non_ready(data):
+    if getattr(data, 'enabled', True):
+        return {}
+    else:
+        return {'disabled': 'disabled'}
+
+
 class ImageChoiceField(ChoiceField):
+    widget = hz_forms.SelectWidget(transform=_get_title,
+                                   transform_html_attrs=_disable_non_ready)
+
     def __init__(self, *args, **kwargs):
         self.image_type = kwargs.pop('image_type', None)
         super(ImageChoiceField, self).__init__(*args, **kwargs)
@@ -508,6 +366,12 @@ class ImageChoiceField(ChoiceField):
         for image in murano_images:
             murano_data = image.murano_property
             title = murano_data.get('title', image.name)
+
+            if image.status == 'active':
+                title = Choice(title, enabled=True)
+            else:
+                title = Choice("{} ({})".format(title, image.status),
+                               enabled=False)
             if self.image_type is not None:
                 itype = murano_data.get('type')
 
@@ -528,6 +392,50 @@ class ImageChoiceField(ChoiceField):
             image_choices.insert(0, ("", _("No images available")))
 
         self.choices = image_choices
+
+
+class NetworkChoiceField(ChoiceField):
+    def __init__(self,
+                 include_subnets=True,
+                 filter=None,
+                 murano_networks=None,
+                 allow_auto=True,
+                 *args,
+                 **kwargs):
+        self.filter = filter
+        if murano_networks:
+            if murano_networks.lower() not in ["exclude", "translate"]:
+                raise ValueError(_("Invalid value of 'murano_nets' option"))
+        self.murano_networks = murano_networks
+        self.include_subnets = include_subnets
+        self.allow_auto = allow_auto
+        super(NetworkChoiceField, self).__init__(*args,
+                                                 **kwargs)
+
+    @with_request
+    def update(self, request, **kwargs):
+        """Populates available networks in the control
+
+        This method is called automatically when the form which contains it is
+        rendered
+        """
+        network_choices = net.get_available_networks(request,
+                                                     self.include_subnets,
+                                                     self.filter,
+                                                     self.murano_networks)
+        if self.allow_auto:
+            network_choices.insert(0, ((None, None), _('Auto')))
+        self.choices = network_choices or []
+
+    def to_python(self, value):
+        """Converts string representation of widget to tuple value
+
+        Is called implicitly during form cleanup phase
+        """
+        if value:
+            return ast.literal_eval(value)
+        else:  # may happen if no networks are available and "Auto" is disabled
+            return None, None
 
 
 class AZoneChoiceField(ChoiceField):
@@ -558,6 +466,7 @@ class BooleanField(forms.BooleanField, CustomPropertiesField):
         else:
             widget = forms.CheckboxInput(attrs={'class': 'checkbox'})
         kwargs['widget'] = widget
+        kwargs['required'] = False
         super(BooleanField, self).__init__(*args, **kwargs)
 
 
@@ -594,7 +503,7 @@ class ClusterIPField(CharField):
                 msg = "Could not found fixed ips for ip %s" % (ip,)
                 LOG.error(msg)
                 exceptions.handle(
-                    request, _(msg),
+                    request, msg,
                     ignore=True)
             else:
                 if ip_info.hostname:
@@ -654,9 +563,9 @@ class ClusterIPField(CharField):
 class DatabaseListField(CharField):
     validate_mssql_identifier = django_validator.RegexValidator(
         re.compile(r'^[a-zA-z_][a-zA-Z0-9_$#@]*$'),
-        _((u'First symbol should be latin letter or underscore. Subsequent ' +
-           u'symbols can be latin letter, numeric, underscore, at sign, ' +
-           u'number sign or dollar sign')))
+        _(u'First symbol should be latin letter or underscore. Subsequent '
+          u'symbols can be latin letter, numeric, underscore, at sign, '
+          u'number sign or dollar sign'))
 
     default_error_messages = {'invalid': validate_mssql_identifier.message}
 
@@ -686,7 +595,7 @@ def make_select_cls(fqns):
                 attrs['class'] += ' murano_add_select'
             super(Widget, self).__init__(attrs=attrs, **kwargs)
 
-        class Media:
+        class Media(object):
             js = ('muranodashboard/js/add-select.js',)
 
     class DynamicSelect(hz_forms.DynamicChoiceField, CustomPropertiesField):
@@ -695,7 +604,7 @@ def make_select_cls(fqns):
         def __init__(self, empty_value_message=None, *args, **kwargs):
             super(DynamicSelect, self).__init__(*args, **kwargs)
             if empty_value_message is not None:
-                self.empty_value_message = _(empty_value_message)
+                self.empty_value_message = empty_value_message
             else:
                 self.empty_value_message = _('Select Application')
 
@@ -717,7 +626,8 @@ def make_select_cls(fqns):
             self.widget.add_item_link = _make_link
             apps = env_api.service_list_by_fqns(request, environment_id, fqns)
             choices = [('', self.empty_value_message)]
-            choices.extend([(app['?']['id'], app.name) for app in apps])
+            choices.extend([(app['?']['id'],
+                             html.escape(app.name)) for app in apps])
             self.choices = choices
             # NOTE(tsufiev): streamline the drop-down UX: auto-select the
             # single available option in a drop-down

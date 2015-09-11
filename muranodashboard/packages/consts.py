@@ -12,15 +12,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import logging
-
 from django.conf import settings
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
 
 MURANO_REPO_URL = getattr(settings, 'MURANO_REPO_URL',
-                          'http://127.0.0.1/')
+                          'http://storage.apps.openstack.org')
 
 try:
     MAX_FILE_SIZE_MB = int(getattr(settings, 'MAX_FILE_SIZE_MB', 5))

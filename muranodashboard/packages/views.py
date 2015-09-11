@@ -13,15 +13,19 @@
 #    under the License.
 
 import json
-import logging
 import sys
 
-from django.contrib.formtools.wizard import views as wizard_views
 from django.core.files import storage
 from django.core.urlresolvers import reverse
 from django.core.urlresolvers import reverse_lazy
 from django import http
 from django.utils.translation import ugettext_lazy as _
+# django.contrib.formtools migration to django 1.8
+# https://docs.djangoproject.com/en/1.8/ref/contrib/formtools/
+try:
+    from django.contrib.formtools.wizard import views as wizard_views
+except ImportError:
+    from formtools.wizard import views as wizard_views
 from horizon import exceptions
 from horizon.forms import views
 from horizon import messages
@@ -30,6 +34,7 @@ from horizon.utils import functions as utils
 from muranoclient.common import exceptions as exc
 from muranoclient.common import utils as muranoclient_utils
 from openstack_dashboard.api import glance
+from oslo_log import log as logging
 
 from muranodashboard import api
 from muranodashboard.api import packages as pkg_api
@@ -50,8 +55,10 @@ BUNDLE_FORMS = [('upload', forms.ImportBundleForm), ]
 
 
 def is_app(wizard):
-    """Return true if uploading package is an application.
-       In that case, category selection from need to be shown.
+    """Check if we're uploading an application
+
+    Return true if uploading package is an application.
+    In that case, category selection from need to be shown.
     """
     step_data = wizard.storage.get_step_data('upload')
     if step_data:
@@ -128,6 +135,14 @@ class ImportBundleWizard(views.ModalFormMixin,
         context = super(ImportBundleWizard, self).get_context_data(**kwargs)
         context['murano_repo_url'] = packages_consts.MURANO_REPO_URL
         return context
+
+    def get_form_initial(self, step):
+        initial_dict = self.initial_dict.get(step, {})
+        if step == 'upload':
+            for name in ['url', 'name', 'import_type']:
+                if name in self.request.GET:
+                    initial_dict[name] = self.request.GET[name]
+        return initial_dict
 
     def process_step(self, form):
         @catalog_views.update_latest_apps
@@ -246,6 +261,14 @@ class ImportPackageWizard(views.ModalFormMixin,
     template_name = 'packages/upload.html'
     condition_dict = {'add_category': is_app}
 
+    def get_form_initial(self, step):
+        initial_dict = self.initial_dict.get(step, {})
+        if step == 'upload':
+            for name in ['url', 'repo_name', 'repo_version', 'import_type']:
+                if name in self.request.GET:
+                    initial_dict[name] = self.request.GET[name]
+        return initial_dict
+
     def get_context_data(self, **kwargs):
         context = super(ImportPackageWizard, self).get_context_data(**kwargs)
         context['murano_repo_url'] = packages_consts.MURANO_REPO_URL
@@ -269,6 +292,7 @@ class ImportPackageWizard(views.ModalFormMixin,
         for dep_pkg in dep_pkgs:
             try:
                 murano_client.packages.update(dep_pkg.id, dep_data)
+                LOG.debug('Success update for package {0}.'.format(dep_pkg.id))
             except Exception as e:
                 msg = _("Couldn't update package {0} parameters. Error: {1}")\
                     .format(dep_pkg.fully_qualified_name, e)
@@ -295,6 +319,24 @@ class ImportPackageWizard(views.ModalFormMixin,
             LOG.info(msg)
             messages.success(self.request, msg)
             return http.HttpResponseRedirect(redirect)
+
+    def _handle_exception(self, original_e):
+        exc_info = sys.exc_info()
+        reason = ''
+        if hasattr(original_e, 'details'):
+            try:
+                error = json.loads(original_e.details).get('error')
+                if error:
+                    reason = error.get('message')
+            except ValueError:
+                # Let horizon operate with original exception
+                raise exc_info[0], exc_info[1], exc_info[2]
+        msg = _('Uploading package failed. {0}').format(reason)
+        LOG.exception(msg)
+        exceptions.handle(
+            self.request,
+            msg,
+            redirect=reverse('horizon:murano:packages:index'))
 
     def process_step(self, form):
         @catalog_views.update_latest_apps
@@ -403,6 +445,9 @@ class ImportPackageWizard(views.ModalFormMixin,
                     self.request,
                     msg,
                     redirect=reverse('horizon:murano:packages:index'))
+            except exc.HTTPInternalServerError as e:
+                self._handle_exception(e)
+
             except exc.HTTPException as e:
                 reason = muranodashboard_utils.parse_api_error(
                     getattr(e, 'details', ''))
@@ -415,23 +460,8 @@ class ImportPackageWizard(views.ModalFormMixin,
                     redirect=reverse('horizon:murano:packages:index'))
 
             except Exception as original_e:
-                exc_info = sys.exc_info()
-                reason = ''
-                if hasattr(original_e, 'details'):
-                    try:
-                        error = json.loads(original_e.details).get('error')
-                        if error:
-                            reason = error.get('message')
-                    except ValueError:
-                        # Let horizon operate with original exception
-                        raise exc_info[0], exc_info[1], exc_info[2]
+                self._handle_exception(original_e)
 
-                msg = _('Uploading package failed. {0}').format(reason)
-                LOG.exception(msg)
-                exceptions.handle(
-                    self.request,
-                    msg,
-                    redirect=reverse('horizon:murano:packages:index'))
         return step_data
 
     def get_form_kwargs(self, step=None):

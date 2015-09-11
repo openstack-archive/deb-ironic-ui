@@ -16,18 +16,23 @@ import collections
 import copy
 import functools
 import json
-import logging
 import re
 
 from django.conf import settings
 from django.contrib import auth
 from django.contrib.auth import decorators as auth_dec
-from django.contrib.formtools.wizard import views as wizard_views
 from django.contrib.staticfiles.templatetags.staticfiles import static
 from django.core.urlresolvers import reverse
+# django.contrib.formtools migration to django 1.8
+# https://docs.djangoproject.com/en/1.8/ref/contrib/formtools/
+try:
+    from django.contrib.formtools.wizard import views as wizard_views
+except ImportError:
+    from formtools.wizard import views as wizard_views
 from django import http
 from django import shortcuts
 from django.utils import decorators as django_dec
+from django.utils import html
 from django.utils import http as http_utils
 from django.utils.translation import ugettext_lazy as _
 from django.views.generic import list as list_view
@@ -35,6 +40,7 @@ from horizon import exceptions
 from horizon.forms import views
 from horizon import messages
 from horizon import tabs
+from oslo_log import log as logging
 
 from muranoclient.common import exceptions as exc
 from muranodashboard import api
@@ -45,7 +51,7 @@ from muranodashboard.dynamic_ui import helpers
 from muranodashboard.dynamic_ui import services
 from muranodashboard.environments import api as env_api
 from muranodashboard.environments import consts
-
+from muranodashboard.packages import consts as pkg_consts
 
 LOG = logging.getLogger(__name__)
 ALL_CATEGORY_NAME = 'All'
@@ -86,12 +92,26 @@ def get_environments_context(request):
 
 
 def get_categories_list(request):
+    """Returns a list of categories, sorted.
+
+    Categories with packages come first, categories without
+    packages come second. both groups alphabetically sorted.
+    """
+
     categories = []
     with api.handled_exceptions(request):
         client = api.muranoclient(request)
-        categories = client.packages.categories()
-    if ALL_CATEGORY_NAME not in categories:
-        categories.insert(0, ALL_CATEGORY_NAME)
+        categories = client.categories.list()
+
+    # NOTE(kzaitsev) We rely here on tuple comparison and ascending order of
+    # sorted(). i.e. (False, 'a') < (False, 'b') < (True, 'a') < (True, 'b')
+    # So to make order more human-friendly we sort based on
+    # package_count == 0, pushing categories without packages in front and
+    # and then sorting them alphabetically
+    categories = [cat for cat in sorted(
+        categories, key=lambda c: (c.package_count == 0, c.name))]
+    # TODO(kzaitsev): add sorting options to category API
+
     return categories
 
 
@@ -132,7 +152,9 @@ def create_quick_environment(request):
 
 
 def update_latest_apps(func):
-    """Adds package id to a session queue with Applications which were
+    """Update 'app_id's in session
+
+    Adds package id to a session queue with Applications which were
     recently added to an environment or to the Catalog itself. Thus it is
     used as decorator for views adding application to an environment or
     uploading new package definition to a catalog.
@@ -169,7 +191,9 @@ def clean_latest_apps(request):
 
 
 def clear_forms_data(func):
-    """Clears user's session from a data for a specific application. It
+    """Removes form data from session
+
+    Clears user's session from a data for a specific application. It
     guarantees that previous additions of that application won't interfere
     with the next ones. Should be used as a decorator for entry points for
     adding an application in an environment.
@@ -238,7 +262,9 @@ def get_supplier_image(request, app_id):
 
 
 class LazyWizard(wizard_views.SessionWizardView):
-    """The class which defers evaluation of form_list and condition_dict
+    """Lazy version of SessionWizardView
+
+    The class which defers evaluation of form_list and condition_dict
     until view method is called. So, each time we load a page with a dynamic
     UI form, it will have markup/logic from the newest YAML-file definition.
     """
@@ -302,8 +328,7 @@ class Wizard(views.ModalFormMixin, LazyWizard):
             return str(index0)
 
     def done(self, form_list, **kwargs):
-        app_id = kwargs['app_id']
-        app_name = pkg_api.get_service_name(self.request, app_id)
+        app_name = self.storage.extra_data['app'].name
 
         service = form_list[0].service
         attributes = service.extract_attributes()
@@ -313,11 +338,11 @@ class Wizard(views.ModalFormMixin, LazyWizard):
             consts.DASHBOARD_ATTRS_KEY, {})
         storage['name'] = app_name
 
+        do_redirect = self.get_wizard_flag('do_redirect')
         wm_form_data = service.cleaned_data.get('workflowManagement')
         if wm_form_data:
-            do_redirect = not wm_form_data['StayAtCatalog']
-        else:
-            do_redirect = self.get_wizard_flag('do_redirect')
+            do_redirect = do_redirect or not wm_form_data.get(
+                'stay_at_the_catalog', True)
 
         fail_url = reverse("horizon:murano:environments:index")
         environment_id = utils.ensure_python_obj(kwargs.get('environment_id'))
@@ -359,14 +384,18 @@ class Wizard(views.ModalFormMixin, LazyWizard):
                 return http.HttpResponseRedirect(env_url)
             else:
                 srv_id = getattr(srv, '?')['id']
-                return self.create_hacked_response(srv_id, attributes['name'])
+                return self.create_hacked_response(
+                    srv_id,
+                    attributes['?'].get('name') or attributes.get('name'))
 
     def create_hacked_response(self, obj_id, obj_name):
         # copy-paste from horizon.forms.views.ModalFormView; should be done
         # that way until we move here from django Wizard to horizon workflow
         if views.ADD_TO_FIELD_HEADER in self.request.META:
             field_id = self.request.META[views.ADD_TO_FIELD_HEADER]
-            response = http.HttpResponse(json.dumps([obj_id, obj_name]))
+            response = http.HttpResponse(json.dumps(
+                [obj_id, html.escape(obj_name)]
+            ))
             response["X-Horizon-Add-To-Field"] = field_id
             return response
         else:
@@ -394,7 +423,13 @@ class Wizard(views.ModalFormMixin, LazyWizard):
         context = super(Wizard, self).get_context_data(form=form, **kwargs)
         mc = api.muranoclient(self.request)
         app_id = self.kwargs.get('app_id')
-        app = mc.packages.get(app_id)
+        app = self.storage.extra_data.get('app')
+
+        # Save extra data to prevent extra API calls
+        if not app:
+            app = mc.packages.get(app_id)
+            self.storage.extra_data['app'] = app
+
         environment_id = self.kwargs.get('environment_id')
         environment_id = utils.ensure_python_obj(environment_id)
         if environment_id is not None:
@@ -428,7 +463,9 @@ class IndexView(list_view.ListView):
         return datum.id
 
     def get_marker(self, index=-1):
-        """Returns the identifier for the object indexed by ``index`` in the
+        """Get the pagination marker
+
+        Returns the identifier for the object indexed by ``index`` in the
         current data set for APIs that use marker/limit-based paging.
         """
         data = self.object_list
@@ -483,6 +520,7 @@ class IndexView(list_view.ListView):
         else:
             query_params = self.get_query_params(internal_query=True)
             query_params['sort_dir'] = 'asc'
+            query_params['catalog'] = True
             packages, more = pkg_api.package_list(
                 self.request, filters=query_params, paginate=True,
                 marker=self.get_marker(), page_size=1)
@@ -531,6 +569,7 @@ class IndexView(list_view.ListView):
         context = super(IndexView, self).get_context_data(**kwargs)
 
         context.update({
+            'ALL_CATEGORY_NAME': ALL_CATEGORY_NAME,
             'categories': get_categories_list(self.request),
             'current_category': self.get_current_category(),
             'latest_list': clean_latest_apps(self.request)
@@ -542,7 +581,11 @@ class IndexView(list_view.ListView):
 
         context['tenant_id'] = self.request.session['token'].tenant['id']
         context.update(get_environments_context(self.request))
-
+        context['repo_url'] = pkg_consts.MURANO_REPO_URL
+        context['pkg_def_url'] = reverse('horizon:murano:packages:index')
+        context['no_apps'] = True
+        if self.get_current_category() != ALL_CATEGORY_NAME or search:
+            context['no_apps'] = False
         return context
 
 

@@ -12,7 +12,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import logging
+from oslo_log import log as logging
 
 from muranoclient.common import exceptions as exc
 from muranodashboard import api
@@ -37,8 +37,8 @@ def get_status_messages_for_service(request, service_id, environment_id):
                 environment_id, deployment.id, service_id)
 
             for report in reports:
-                result += report.created.replace('T', ' ') + ' - ' + str(
-                    report.text) + '\n'
+                result += report.created.replace('T', ' ') + ' - ' + \
+                    report.text + '\n'
     return result
 
 
@@ -53,14 +53,16 @@ def create_session(request, environment_id):
 class Session(object):
     @staticmethod
     def get_or_create(request, environment_id):
-        """Gets id from already opened session for specified environment,
+        """Get an open session id
+
+        Gets id from already opened session for specified environment,
         otherwise opens new session and returns it's id
 
         :param request:
         :param environment_id:
         :return: Session Id
         """
-        #We store opened sessions for each environment in dictionary per user
+        # We store opened sessions for each environment in dictionary per user
         sessions = request.session.get('sessions', {})
 
         if environment_id in sessions:
@@ -71,7 +73,9 @@ class Session(object):
 
     @staticmethod
     def get_or_create_or_delete(request, environment_id):
-        """Gets id from session in open state for specified environment,
+        """Get an open session id
+
+        Gets id from session in open state for specified environment,
         if state is deployed - this session will be deleted and new
         would be created. If there are no any sessions new would be created.
         Returns if of chosen or created session.
@@ -111,14 +115,16 @@ class Session(object):
 
     @staticmethod
     def get(request, environment_id):
-        """Gets id from already opened session for specified environment,
+        """Get an open session id
+
+        Gets id from already opened session for specified environment,
         otherwise returns None
 
         :param request:
         :param environment_id:
         :return: Session Id
         """
-        #We store opened sessions for each environment in dictionary per user
+        # We store opened sessions for each environment in dictionary per user
         sessions = request.session.get('sessions', {})
         session_id = sessions.get(environment_id, '')
         if session_id:
@@ -156,16 +162,20 @@ def environments_list(request):
 
 
 def environment_create(request, parameters):
-    #name is required param
+    # name is required param
     body = {'name': parameters['name']}
+    if 'defaultNetworks' in parameters:
+        body['defaultNetworks'] = parameters['defaultNetworks']
     env = api.muranoclient(request).environments.create(body)
     LOG.debug('Environment::Create {0}'.format(env))
     return env
 
 
-def environment_delete(request, environment_id):
-    LOG.debug('Environment::Delete <Id: {0}>'.format(environment_id))
-    return api.muranoclient(request).environments.delete(environment_id)
+def environment_delete(request, environment_id, abandon=False):
+    action = 'Abandon' if abandon else 'Delete'
+    LOG.debug('Environment::{0} <Id : {1}>'.format(action, environment_id))
+    return api.muranoclient(request).environments.delete(
+        environment_id, abandon)
 
 
 def environment_get(request, environment_id):
@@ -200,8 +210,14 @@ def action_allowed(request, environment_id):
 
 
 def services_list(request, environment_id):
+    """Get environment applications.
+
+       This function collects data from Murano API and modifies it only for
+       dashboard purposes. Those changes don't impact application
+       deployment parameters.
+    """
     def strip(msg, to=100):
-        return '%s...' % msg[:to] if len(msg) > to else msg
+        return u'%s...' % msg[:to] if len(msg) > to else msg
 
     services = []
     # need to create new session to see services deployed be other user
@@ -222,7 +238,7 @@ def services_list(request, environment_id):
         service_id = service_data['?']['id']
 
         if service_id in reports and reports[service_id]:
-            last_operation = strip(str(reports[service_id].text))
+            last_operation = strip(reports[service_id].text)
             time = reports[service_id].updated.replace('T', ' ')
         else:
             last_operation = 'Component draft created' \
@@ -236,6 +252,9 @@ def services_list(request, environment_id):
         service_data['environment_version'] = environment.version
         service_data['operation'] = last_operation
         service_data['operation_updated'] = time
+        if service_data['?'].get('name'):
+            service_data['name'] = service_data['?']['name']
+
         services.append(service_data)
 
     LOG.debug('Service::List')

@@ -17,27 +17,30 @@ import string
 import time
 import types
 
-import yaql.context
+from yaql.language import specs
+from yaql.language import yaqltypes
 
+from muranodashboard.catalog import forms as catalog_forms
 from muranodashboard.dynamic_ui import helpers
 
 
-@yaql.context.ContextAware()
-@yaql.context.EvalArg('times', types.IntType)
+@specs.parameter('times', int)
 def _repeat(context, template, times):
     for i in xrange(times):
-        context.set_data(i + 1, '$index')
-        yield helpers.evaluate(template(), context)
+        context['index'] = i + 1
+        yield helpers.evaluate(template, context)
 
 
 _random_string_counter = None
 
 
-@yaql.context.EvalArg('pattern', types.StringTypes)
-@yaql.context.EvalArg('number', types.IntType)
+@specs.parameter('pattern', yaqltypes.String())
+@specs.parameter('number', int)
 def _generate_hostname(pattern, number):
-    """Replace '#' char in pattern with supplied number, if no pattern is
-       supplied generate short and unique name for the host.
+    """Generates hostname based on pattern
+
+    Replaces '#' char in pattern with supplied number, if no pattern is
+    supplied generates short and unique name for the host.
 
     :param pattern: hostname pattern
     :param number: number to replace with in pattern
@@ -63,6 +66,13 @@ def _generate_hostname(pattern, number):
     return prefix + timestamp + suffix
 
 
+def _name(context):
+    name = context.get_data[
+        catalog_forms.WF_MANAGEMENT_NAME]['application_name']
+    return name
+
+
 def register(context):
     context.register_function(_repeat, 'repeat')
     context.register_function(_generate_hostname, 'generateHostname')
+    context.register_function(_name, 'name')

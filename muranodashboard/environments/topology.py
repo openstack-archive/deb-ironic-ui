@@ -20,11 +20,20 @@ from django.core.urlresolvers import reverse
 from django.template import loader
 
 from muranodashboard.api import packages as pkg_cli
+from muranodashboard.environments import consts
 
 
-def get_app_image(request, app_fqdn):
+def get_app_image(request, app_fqdn, status=None):
     package = pkg_cli.app_by_fqn(request, app_fqdn)
-    url = static('dashboard/img/stack-green.svg')
+    if status in [
+       consts.STATUS_ID_DEPLOY_FAILURE,
+       consts.STATUS_ID_DELETE_FAILURE,
+       ]:
+        url = static('dashboard/img/stack-red.svg')
+    elif status == consts.STATUS_ID_READY:
+        url = static('dashboard/img/stack-green.svg')
+    else:
+        url = static('dashboard/img/stack-gray.svg')
     if package:
         app_id = package.id
         url = reverse("horizon:murano:catalog:images", args=(app_id,))
@@ -39,14 +48,16 @@ def _get_environment_status_message(entity):
 
     in_progress = True
     status_message = ''
-    if status in ('pending', 'ready'):
+    if status in (consts.STATUS_ID_PENDING, consts.STATUS_ID_READY):
         in_progress = False
-    if status == 'pending':
+    if status == consts.STATUS_ID_PENDING:
         status_message = 'Waiting for deployment'
-    elif status == 'ready':
+    elif status == consts.STATUS_ID_READY:
         status_message = 'Deployed'
-    elif status == 'deploying':
+    elif status == consts.STATUS_ID_DEPLOYING:
         status_message = 'Deployment is in progress'
+    elif status == consts.STATUS_ID_DEPLOY_FAILURE:
+        status_message = 'Deployment failed'
     return in_progress, status_message
 
 
@@ -66,7 +77,10 @@ def _truncate_type(type_str, num_of_chars):
 
 
 def _application_info(application, app_image, status):
-    context = {'name': application['name'],
+    name = application['?'].get('name')
+    if not name:
+        name = application.get('name')
+    context = {'name': name,
                'type': _truncate_type(application['?']['type'], 45),
                'status': status,
                'app_image': app_image}
@@ -142,7 +156,7 @@ def _is_atomic(elt):
 
 
 def render_d3_data(request, environment):
-    if not environment:
+    if not (environment and environment.services):
         return None
 
     ext_net_name = None
@@ -253,7 +267,8 @@ def render_d3_data(request, environment):
                     required_by = ext_net_name
 
         service_node = _create_empty_node()
-        service_image = get_app_image(request, service['?']['type'])
+        service_image = get_app_image(request, service['?']['type'],
+                                      service['?']['status'])
         node_id = service['?']['id']
         node_refs[node_id] = service_node
         service_node.update({

@@ -13,7 +13,6 @@
 #    under the License.
 
 import json
-import logging
 
 from django.core.urlresolvers import reverse
 from django.utils.datastructures import SortedDict
@@ -22,6 +21,7 @@ from horizon import exceptions
 from horizon import tabs
 from openstack_dashboard.api import heat as heat_api
 from openstack_dashboard.api import nova as nova_api
+from oslo_log import log as logging
 
 
 from muranoclient.common import exceptions as exc
@@ -100,8 +100,8 @@ class OverviewTab(tabs.Tab):
         if hasattr(service_data, 'floatingip'):
             detail_info['Floating IP'] = service_data.floatingip
 
-        #TODO(efedorova): Need to determine Instance subclass
-        #                 after it would be possible
+        # TODO(efedorova): Need to determine Instance subclass
+        # after it would be possible
         if hasattr(service_data,
                    'instance') and service_data['instance'] is not None:
                 instance, stack = get_instance_and_stack(
@@ -150,15 +150,16 @@ class EnvLogsTab(tabs.Tab):
 
     def get_context_data(self, request):
         reports = self.tab_group.kwargs['logs']
-        lines = []
-        for r in reports:
-            line = format_log(r.created.replace('T', ' ') + ' - ' + r.text,
-                              r.level)
-            lines.append(line)
-        result = '\n'.join(lines)
-        if not result:
-            result = '\n'
-        return {"reports": result}
+        for report in reports:
+            report.created = report.created.replace('T', ' ')
+        return {"reports": reports}
+
+
+class LatestLogsTab(EnvLogsTab):
+    name = _("Latest Deployment Log")
+
+    def allowed(self, request):
+        return self.data.get('reports')
 
 
 class EnvConfigTab(tabs.TableTab):
@@ -252,7 +253,8 @@ class DeploymentTab(tabs.TableTab):
 
 class EnvironmentDetailsTabs(tabs.TabGroup):
     slug = "environment_details"
-    tabs = (EnvironmentServicesTab, EnvironmentTopologyTab, DeploymentTab)
+    tabs = (EnvironmentServicesTab, EnvironmentTopologyTab,
+            DeploymentTab, LatestLogsTab)
 
 
 class ServicesTabs(tabs.TabGroup):
@@ -263,13 +265,3 @@ class ServicesTabs(tabs.TabGroup):
 class DeploymentDetailsTabs(tabs.TabGroup):
     slug = "deployment_details"
     tabs = (EnvConfigTab, EnvLogsTab,)
-
-
-def format_log(message, level):
-    if level == 'warning' or level == 'error':
-        frm = "<b><span style='color:#{0}' title='{1}'>{2}</span></b>"
-        return frm.format(consts.LOG_LEVEL_TO_COLOR[level],
-                          consts.LOG_LEVEL_TO_TEXT[level],
-                          message)
-    else:
-        return message

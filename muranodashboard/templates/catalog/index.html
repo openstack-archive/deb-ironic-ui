@@ -37,16 +37,19 @@
                         <div class="header dropdown">
                             <a href="#"
                                class="btn btn-sm btn-default dropdown-toggle">
-                                {{ current_category }} <b
+                                {{ current_category|truncatechars:30 }} <b
                                     class="caret"></b></a>
-                            <ul class="dropdown-menu row_actions clearfix">
-                                {% for category in categories %}
-                                    <li class="clearfix"><a tabindex="-1"
-                                                            href="
-                                    {% url 'horizon:murano:catalog:index' %}?category={{ category|urlencode }}"
-                                                            class="btn btn-small">
-                                        {{ category }}</a></li>
-                                {% endfor %}
+                            <ul class="dropdown-menu row_actions clearfix scrollable-menu">
+                                <li class="clearfix">
+                                    <a tabindex="-1" href="{% url 'horizon:murano:catalog:index' %}?category={{ ALL_CATEGORY_NAME|urlencode }}" class="btn btn-small">
+                                        {{ ALL_CATEGORY_NAME }}</a>
+                                </li>
+                            {% for category in categories %}
+                                <li class="clearfix">
+                                    <a tabindex="-1" href="{% url 'horizon:murano:catalog:index' %}?category={{ category.name|urlencode }}" class="btn btn-small">
+                                        {{ category.name }} ({{category.package_count}})</a>
+                                </li>
+                            {% endfor %}
                             </ul>
                         </div>
                     </h3>
@@ -101,7 +104,21 @@
                 </div>
             </div>
         {% else %}
-            <p class="col-xs-12 alert alert-info">{% trans "There are no applications in the catalog." %}</p>
+            <p class="col-xs-12 alert alert-info">
+            {% if no_apps %}
+                {% blocktrans %} There are no applications in the catalog.
+                    You can import apps from<a href="{{ repo_url }}"
+                                               target="_blank"> {{ repo_url }}</a>.
+                    <br><br>
+                    Go to
+                    <b><a href={{ pkg_def_url }}>Package Definitions</a></b>,
+                    click 'Import Package' and select <i>Repository</i> as a
+                    <i>Package Source</i>.  {% endblocktrans %}
+            {% else %}
+                {% blocktrans %} No applications matching your criteria.
+                {% endblocktrans %}
+            {% endif %}
+            </p>
         {% endif %}
     </div>
     <script>

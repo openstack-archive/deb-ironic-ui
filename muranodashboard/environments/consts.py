@@ -18,7 +18,7 @@ import tempfile
 from django.conf import settings
 
 
-#---- Metadata Consts ----#
+# ---- Metadata Consts ---- #
 CHUNK_SIZE = 1 << 20  # 1MB
 ARCHIVE_PKG_NAME = 'archive.tar.gz'
 CACHE_DIR = getattr(settings, 'METADATA_CACHE_DIR',
@@ -29,7 +29,7 @@ CACHE_REFRESH_SECONDS_INTERVAL = 5
 
 DASHBOARD_ATTRS_KEY = '_26411a1861294160833743e45d0eaad9'
 
-#---- Forms Consts ----#
+# ---- Forms Consts ---- #
 STATUS_ID_READY = 'ready'
 STATUS_ID_PENDING = 'pending'
 STATUS_ID_DEPLOYING = 'deploying'
@@ -85,14 +85,3 @@ DEPLOYMENT_STATUS_DISPLAY_CHOICES = (
     (DEP_STATUS_ID_SUCCESS, 'Successful'),
     ('', 'Unknown'),
 )
-
-#---- Logs in Table Consts ----#
-LOG_LEVEL_TO_COLOR = {
-    'warning': "DF7401",
-    'error': "FF0000"
-}
-
-LOG_LEVEL_TO_TEXT = {
-    'warning': "Warning",
-    'error': "Error"
-}

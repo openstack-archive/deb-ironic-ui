@@ -13,22 +13,26 @@
 #    under the License.
 
 import json
-import logging
 
 from django.core.urlresolvers import reverse
+from django import http as django_http
 from django import shortcuts
+from django.template import defaultfilters
 from django.utils.translation import ugettext_lazy as _
 
 from horizon import exceptions
+from horizon import forms
 from horizon import messages
 from horizon import tables
+from oslo_log import log as logging
 
+from muranodashboard import api as api_utils
+from muranodashboard.api import packages as pkg_api
 from muranodashboard.catalog import views as catalog_views
 from muranodashboard.environments import api
 from muranodashboard.environments import consts
 
-from muranodashboard import api as api_utils
-from muranodashboard.api import packages as pkg_api
+from muranoclient.common import exceptions as exc
 
 LOG = logging.getLogger(__name__)
 
@@ -75,7 +79,7 @@ class CreateEnvironment(tables.LinkAction):
         except Exception as e:
             msg = (_('Unable to create environment {0}'
                      ' due to: {1}').format(environment, e))
-            LOG.info(msg)
+            LOG.error(msg)
             redirect = reverse(self.redirect_url)
             exceptions.handle(request, msg, redirect=redirect)
 
@@ -98,24 +102,42 @@ class DeleteEnvironment(tables.DeleteAction):
         except Exception as e:
             msg = (_('Unable to delete environment {0}'
                      ' due to: {1}').format(environment_id, e))
-            LOG.info(msg)
+            LOG.error(msg)
             redirect = reverse(self.redirect_url)
             exceptions.handle(request, msg, redirect=redirect)
 
 
-class EditEnvironment(tables.LinkAction):
-    name = 'edit'
-    verbose_name = _('Edit Environment')
-    url = 'horizon:murano:environments:update_environment'
-    classes = ('ajax-modal', 'btn-edit')
-    icon = 'edit'
+class AbandonEnvironment(tables.DeleteAction):
+    help_text = _("This action cannot be undone. Any resources created by "
+                  "this environment will have to be released manually.")
+    name = 'abandon'
+    action_present = _('Abandon')
+    action_past = _('Abandoned')
+    data_type_singular = _('Environment')
+    data_type_plural = _('Environments')
+    redirect_url = "horizon:project:murano:environments"
 
     def allowed(self, request, environment):
+        """Limit when 'Abandon Environment' button is shown
+
+        'Abandon Environment' button is hidden in several cases:
+         * environment is new
+         * app added to env, but not deploy is not started
+        """
         status = getattr(environment, 'status', None)
-        if status not in [consts.STATUS_ID_DEPLOYING]:
-            return True
-        else:
+        if status in [consts.STATUS_ID_NEW, consts.STATUS_ID_PENDING]:
             return False
+        return True
+
+    def action(self, request, environment_id):
+        try:
+            api.environment_delete(request, environment_id, True)
+        except Exception as e:
+            msg = (_('Unable to abandon an environment {0}'
+                     ' due to: {1}').format(environment_id, e))
+            LOG.error(msg)
+            redirect = reverse(self.redirect_url)
+            exceptions.handle(request, msg, redirect=redirect)
 
 
 class DeleteService(tables.DeleteAction):
@@ -151,10 +173,20 @@ class DeployEnvironment(tables.BatchAction):
     classes = ('btn-launch',)
 
     def allowed(self, request, environment):
+        """Limit when 'Deploy Environment' button is shown
+
+        'Deploy environment' is not shown in several cases:
+        * when deploy is already in progress
+        * delete is in progress
+        * no new services added to the environment (after env creation
+          or successful deploy or delete failure)
+        """
         status = getattr(environment, 'status', None)
-        if not environment.has_new_services:
-            return False
-        if status in consts.NO_ACTION_ALLOWED_STATUSES:
+        if (status != consts.STATUS_ID_DEPLOY_FAILURE
+           and not environment.has_new_services):
+                return False
+        if (status in consts.NO_ACTION_ALLOWED_STATUSES
+                or status == consts.STATUS_ID_READY):
             return False
         return True
 
@@ -174,6 +206,14 @@ class DeployThisEnvironment(tables.Action):
     classes = ('btn-launch',)
 
     def allowed(self, request, service):
+        """Limit when 'Deploy Environment' button is shown
+
+        'Deploy environment' is not shown in several cases:
+        * when deploy is already in progress
+        * delete is in progress
+        * env was just created and no apps added
+        * previous deployment finished successfully
+        """
         status, version = _get_environment_status_and_version(request,
                                                               self.table)
         if (status in consts.NO_ACTION_ALLOWED_STATUSES
@@ -213,7 +253,16 @@ class UpdateEnvironmentRow(tables.Row):
     ajax = True
 
     def get_data(self, request, environment_id):
-        return api.environment_get(request, environment_id)
+        try:
+            return api.environment_get(request, environment_id)
+        except exc.HTTPNotFound:
+            # returning 404 to the ajax call removes the
+            # row from the table on the ui
+            raise django_http.Http404
+        except Exception:
+            # let our unified handler take care of errors here
+            with api_utils.handled_exceptions(request):
+                raise
 
 
 class UpdateServiceRow(tables.Row):
@@ -224,10 +273,36 @@ class UpdateServiceRow(tables.Row):
         return api.service_get(request, environment_id, service_id)
 
 
+class UpdateName(tables.UpdateAction):
+    def update_cell(self, request, datum, obj_id, cell_name, new_cell_value):
+        try:
+            mc = api_utils.muranoclient(request)
+            mc.environments.update(datum.id, name=new_cell_value)
+        except exc.HTTPConflict:
+            message = _("This name is already taken.")
+            messages.warning(request, message)
+            LOG.warning(_("Couldn't update environment. Reason: ") + message)
+
+            # FIXME(kzaitsev): There is a bug in horizon and inline error
+            # icons are missing. This means, that if we return 400 here, by
+            # raising django.core.exceptions.ValidationError(message) the UI
+            # will break a little. Until the bug is fixed this will raise 500
+            # bug link: https://bugs.launchpad.net/horizon/+bug/1359399
+            # Alternatively this could somehow raise 409, which would result
+            # in the same behaviour.
+            raise ValueError(message)
+        except Exception:
+            exceptions.handle(request, ignore=True)
+            return False
+        return True
+
+
 class EnvironmentsTable(tables.DataTable):
     name = tables.Column('name',
                          link='horizon:murano:environments:services',
-                         verbose_name=_('Name'))
+                         verbose_name=_('Name'),
+                         form_field=forms.CharField(),
+                         update_action=UpdateName)
 
     status = tables.Column('status',
                            verbose_name=_('Status'),
@@ -235,7 +310,7 @@ class EnvironmentsTable(tables.DataTable):
                            status_choices=consts.STATUS_CHOICES,
                            display_choices=consts.STATUS_DISPLAY_CHOICES)
 
-    class Meta:
+    class Meta(object):
         name = 'murano'
         verbose_name = _('Environments')
         template = 'environments/_data_table.html'
@@ -244,7 +319,7 @@ class EnvironmentsTable(tables.DataTable):
         no_data_message = _('NO ENVIRONMENTS')
         table_actions = (CreateEnvironment,)
         row_actions = (ShowEnvironmentServices, DeployEnvironment,
-                       EditEnvironment, DeleteEnvironment)
+                       DeleteEnvironment, AbandonEnvironment)
         multi_select = False
 
 
@@ -271,7 +346,8 @@ class ServicesTable(tables.DataTable):
                            status_choices=consts.STATUS_CHOICES,
                            display_choices=consts.STATUS_DISPLAY_CHOICES)
     operation = tables.Column('operation',
-                              verbose_name=_('Last operation'))
+                              verbose_name=_('Last operation'),
+                              filters=(defaultfilters.urlize, ))
     operation_updated = tables.Column('operation_updated',
                                       verbose_name=_('Time updated'))
 
@@ -282,7 +358,8 @@ class ServicesTable(tables.DataTable):
         packages = []
         with api_utils.handled_exceptions(self.request):
             packages, self._more = pkg_api.package_list(
-                self.request, filters={'type': 'Application'})
+                self.request,
+                filters={'type': 'Application', 'catalog': True})
         return json.dumps([package.to_dict() for package in packages])
 
     def actions_allowed(self):
@@ -328,11 +405,11 @@ class ServicesTable(tables.DataTable):
             actions.extend(sorted(app_actions, key=lambda x: x.name))
         return actions
 
-    class Meta:
+    class Meta(object):
         name = 'services'
         verbose_name = _('Component List')
         template = 'services/_data_table.html'
-        no_data_message = _('NO COMPONENTS')
+        no_data_message = _('No components')
         status_columns = ['status']
         row_class = UpdateServiceRow
         table_actions = (AddApplication, DeployThisEnvironment)
@@ -366,7 +443,7 @@ class DeploymentsTable(tables.DataTable):
         status=True,
         display_choices=consts.DEPLOYMENT_STATUS_DISPLAY_CHOICES)
 
-    class Meta:
+    class Meta(object):
         name = 'deployments'
         verbose_name = _('Deployments')
         template = 'common/_data_table.html'
@@ -377,13 +454,13 @@ class EnvConfigTable(tables.DataTable):
     name = tables.Column('name',
                          verbose_name=_('Name'))
     _type = tables.Column(
-        lambda datum: datum['?'][consts.DASHBOARD_ATTRS_KEY]['name'],
+        lambda datum: get_service_type(datum) or 'Unknown',
         verbose_name=_('Type'))
 
     def get_object_id(self, datum):
         return datum['?']['id']
 
-    class Meta:
+    class Meta(object):
         name = 'environment_configuration'
         verbose_name = _('Deployed Components')
         template = 'common/_data_table.html'

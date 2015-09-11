@@ -10,17 +10,24 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import multiprocessing
+import os
+import shutil
+import SimpleHTTPServer
+import SocketServer
+import tempfile
 import time
 
 from selenium.webdriver.common import by
+from selenium.webdriver.support import ui
 
 from muranodashboard.tests.functional import base
 from muranodashboard.tests.functional import consts as c
+from muranodashboard.tests.functional import utils
 
 
 class TestSuiteSmoke(base.UITestCase):
-    """This class keeps smoke tests which check operability of all main panels
-    """
+    """This class keeps smoke tests which check operability of main panels"""
     def test_smoke_environments_panel(self):
         self.go_to_submenu('Environments')
         self.check_panel_is_present('Environments')
@@ -66,9 +73,10 @@ class TestSuiteEnvironment(base.ApplicationTestCase):
         self.go_to_submenu('Environments')
         self.create_environment('test_edit_env')
         self.go_to_submenu('Environments')
-        self.driver.find_element_by_link_text('test_edit_env')
 
         self.edit_environment(old_name='test_edit_env', new_name='edited_env')
+
+        self.go_to_submenu('Environments')
         self.check_element_on_page(by.By.LINK_TEXT, 'edited_env')
         self.check_element_not_on_page(by.By.LINK_TEXT, 'test_edit_env')
 
@@ -109,7 +117,7 @@ class TestSuiteImage(base.ImageTestCase):
         new_title = 'RenamedImage ' + str(time.time())
         self.fill_field(by.By.ID, 'id_title', new_title)
         self.select_from_list('type', 'linux')
-        self.select_and_click_element('Mark')
+        self.select_and_click_element('Mark Image')
         self.check_element_on_page(by.By.XPATH, c.TestImage.format(new_title))
 
         self.repair_image()
@@ -148,7 +156,9 @@ class TestSuiteImage(base.ImageTestCase):
 
 class TestSuiteFields(base.FieldsTestCase):
     def test_check_domain_name_field_validation(self):
-        """Test checks that validation of domain name field work
+        """Check domain name validation
+
+        Test checks that validation of domain name field work
         and appropriate error message is appeared after entering
         incorrect domain name
 
@@ -222,8 +232,7 @@ class TestSuiteFields(base.FieldsTestCase):
             'they are used to delimit the components of domain style names')
 
     def test_check_app_name_validation(self):
-        """Test checks validation of field that usually define
-        application name
+        """Test checks validation of field that usually define application name
 
         Scenario:
             1. Navigate to Application Catalog > Applications
@@ -248,7 +257,9 @@ class TestSuiteFields(base.FieldsTestCase):
         self.wait_element_is_clickable(by.By.XPATH, c.ButtonSubmit)
 
     def test_check_required_field(self):
-        """Test checks that fields with parameter 'required=True' in yaml form
+        """Test required fields
+
+        Test checks that fields with parameter 'required=True' in yaml form
         are truly required and can't be omitted
 
         Scenario:
@@ -324,7 +335,9 @@ class TestSuiteApplications(base.ApplicationTestCase):
         self.check_element_on_page(by.By.NAME, "0-name")
 
     def test_check_ability_create_two_dependent_apps(self):
-        """Test checks that using one creation form it is possible to
+        """Test using two dependent apps
+
+        Test checks that using one creation form it is possible to
         add to related apps in the one environment
 
         Scenario:
@@ -389,7 +402,9 @@ class TestSuiteApplications(base.ApplicationTestCase):
                                        c.App.format('MockApp'))
 
     def test_filter_by_category(self):
-        """Test checks ability to filter applications by category
+        """Test filtering by category
+
+        Test checks ability to filter applications by category
         in Application Catalog page
 
         Scenario:
@@ -403,13 +418,13 @@ class TestSuiteApplications(base.ApplicationTestCase):
         self.go_to_submenu('Applications')
         self.driver.find_element_by_xpath(
             c.CategorySelector.format('All')).click()
-        self.driver.find_element_by_link_text('Databases').click()
+        self.driver.find_element_by_partial_link_text('Databases').click()
 
         self.check_element_on_page(by.By.XPATH, c.App.format('PostgreSQL'))
 
         self.driver.find_element_by_xpath(
             c.CategorySelector.format('Databases')).click()
-        self.driver.find_element_by_link_text('Web').click()
+        self.driver.find_element_by_partial_link_text('Web').click()
 
         self.check_element_on_page(by.By.XPATH, c.App.format('MockApp'))
 
@@ -530,7 +545,8 @@ class TestSuiteApplications(base.ApplicationTestCase):
                                    "//*[contains(text(), 'Completed')]")
 
     def test_check_info_about_app(self):
-        """Test checks that information about app is available and tr
+        """Test checks that information about app is available
+
         Scenario:
             1. Navigate to 'Application Catalog > Applications' panel
             2. Choose some application and click on 'More info'
@@ -548,8 +564,7 @@ class TestSuiteApplications(base.ApplicationTestCase):
         self.driver.find_element_by_class_name('app_license')
 
     def test_check_topology_page(self):
-        """Test checks that topology tab is available
-        and topology page displays correctly
+        """Test checks that topology tab is available displays correctly
 
         Scenario:
             1. Navigate Applications and click MockApp 'Quick Deploy'
@@ -569,8 +584,7 @@ class TestSuiteApplications(base.ApplicationTestCase):
         self.check_element_on_page(by.By.TAG_NAME, 'image')
 
     def test_check_deployment_history(self):
-        """Test checks that deployment history tab is available
-        and deployment logs are present and correctly
+        """Test checks that deployment history tab is available logs are ok
 
         Scenario:
             1. Navigate Applications and click MockApp 'Quick Deploy'
@@ -607,7 +621,7 @@ class TestSuitePackages(base.PackageTestCase):
         """
         self.navigate_to('Manage')
         self.go_to_submenu('Package Definitions')
-        self.select_action_for_package('PostgreSQL',
+        self.select_action_for_package(self.postgre_id,
                                        'modify_package')
         self.fill_field(by.By.ID, 'id_name', 'PostgreSQL-modified')
         self.driver.find_element_by_xpath(c.InputSubmit).click()
@@ -617,7 +631,7 @@ class TestSuitePackages(base.PackageTestCase):
                                    c.AppPackageDefinitions.format(
                                        'PostgreSQL-modified'))
 
-        self.select_action_for_package('PostgreSQL-modified',
+        self.select_action_for_package(self.postgre_id,
                                        'modify_package')
         self.fill_field(by.By.ID, 'id_name', 'PostgreSQL')
         self.driver.find_element_by_xpath(c.InputSubmit).click()
@@ -637,7 +651,7 @@ class TestSuitePackages(base.PackageTestCase):
         """
         self.navigate_to('Manage')
         self.go_to_submenu('Package Definitions')
-        self.select_action_for_package('PostgreSQL',
+        self.select_action_for_package(self.postgre_id,
                                        'modify_package')
 
         self.fill_field(by.By.ID, 'id_tags', 'TEST_TAG')
@@ -660,8 +674,8 @@ class TestSuitePackages(base.PackageTestCase):
         self.navigate_to('Manage')
         self.go_to_submenu('Package Definitions')
 
-        self.select_action_for_package('PostgreSQL', 'more')
-        self.select_action_for_package('PostgreSQL', 'download_package')
+        self.select_action_for_package(self.postgre_id, 'more')
+        self.select_action_for_package(self.postgre_id, 'download_package')
 
     def test_check_toggle_enabled_package(self):
         """Test check ability to make package active or inactive
@@ -676,15 +690,15 @@ class TestSuitePackages(base.PackageTestCase):
         self.navigate_to('Manage')
         self.go_to_submenu('Package Definitions')
 
-        self.select_action_for_package('PostgreSQL', 'more')
-        self.select_action_for_package('PostgreSQL', 'toggle_enabled')
+        self.select_action_for_package(self.postgre_id, 'more')
+        self.select_action_for_package(self.postgre_id, 'toggle_enabled')
 
-        self.check_package_parameter('PostgreSQL', 'Active', 'False')
+        self.check_package_parameter(self.postgre_id, 'Active', 'False')
 
-        self.select_action_for_package('PostgreSQL', 'more')
-        self.select_action_for_package('PostgreSQL', 'toggle_enabled')
+        self.select_action_for_package(self.postgre_id, 'more')
+        self.select_action_for_package(self.postgre_id, 'toggle_enabled')
 
-        self.check_package_parameter('PostgreSQL', 'Active', 'True')
+        self.check_package_parameter(self.postgre_id, 'Active', 'True')
 
     def test_check_toggle_public_package(self):
         """Test check ability to make package active or inactive
@@ -699,15 +713,17 @@ class TestSuitePackages(base.PackageTestCase):
         self.navigate_to('Manage')
         self.go_to_submenu('Package Definitions')
 
-        self.select_action_for_package('PostgreSQL', 'more')
-        self.select_action_for_package('PostgreSQL', 'toggle_public_enabled')
+        self.select_action_for_package(self.postgre_id, 'more')
+        self.select_action_for_package(self.postgre_id,
+                                       'toggle_public_enabled')
 
-        self.check_package_parameter('PostgreSQL', 'Public', 'True')
+        self.check_package_parameter(self.postgre_id, 'Public', 'True')
 
-        self.select_action_for_package('PostgreSQL', 'more')
-        self.select_action_for_package('PostgreSQL', 'toggle_public_enabled')
+        self.select_action_for_package(self.postgre_id, 'more')
+        self.select_action_for_package(self.postgre_id,
+                                       'toggle_public_enabled')
 
-        self.check_package_parameter('PostgreSQL', 'Public', 'False')
+        self.check_package_parameter(self.postgre_id, 'Public', 'False')
 
     def test_modify_description(self):
         """Test check ability to change description of the package
@@ -719,7 +735,7 @@ class TestSuitePackages(base.PackageTestCase):
         """
         self.navigate_to('Manage')
         self.go_to_submenu('Package Definitions')
-        self.select_action_for_package('MockApp',
+        self.select_action_for_package(self.mockapp_id,
                                        'modify_package')
 
         self.modify_package('description', 'New Description')
@@ -732,8 +748,8 @@ class TestSuitePackages(base.PackageTestCase):
 
     def test_upload_package(self):
         """Test package uploading via Package Definitions view.
-           Skip category selection step.
 
+           Skips category selection step.
         """
         self.navigate_to('Manage')
         self.go_to_submenu('Package Definitions')
@@ -818,3 +834,112 @@ class TestSuitePackages(base.PackageTestCase):
         self.driver.find_element_by_xpath(c.ConfirmDeletion).click()
         self.wait_for_alert_message()
         self.check_element_not_on_page(by.By.XPATH, delete_new_category_btn)
+
+
+class TestSuiteRepository(base.PackageTestCase):
+    _apps_to_delete = set()
+
+    def _compose_app(self, name, require=None):
+        package_dir = os.path.join(self.serve_dir, 'apps/', name)
+        shutil.copytree(c.PackageDir, package_dir)
+
+        app_name = utils.compose_package(
+            name,
+            os.path.join(package_dir, 'manifest.yaml'),
+            package_dir,
+            require=require,
+            archive_dir=os.path.join(self.serve_dir, 'apps/'),
+        )
+        self._apps_to_delete.add(name)
+        return app_name
+
+    def setUp(self):
+        super(TestSuiteRepository, self).setUp()
+        self.serve_dir = tempfile.mkdtemp(suffix="repo")
+
+        def serve_function():
+            class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+                pass
+            os.chdir(self.serve_dir)
+            httpd = SocketServer.TCPServer(
+                ("0.0.0.0", 8099),
+                Handler, bind_and_activate=False)
+            httpd.allow_reuse_address = True
+            httpd.server_bind()
+            httpd.server_activate()
+            httpd.serve_forever()
+
+        self.p = multiprocessing.Process(target=serve_function)
+        self.p.start()
+
+    def tearDown(self):
+        super(TestSuiteRepository, self).tearDown()
+        self.p.terminate()
+        for package in self.murano_client.packages.list(include_disabled=True):
+            if package.name in self._apps_to_delete:
+                self.murano_client.packages.delete(package.id)
+                self._apps_to_delete.remove(package.name)
+        shutil.rmtree(self.serve_dir)
+
+    def test_import_package_by_url(self):
+        """Test package importing via url."""
+
+        pkg_name = "dummy_package"
+        self._compose_app(pkg_name)
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Package Definitions')
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        sel = self.driver.find_element_by_css_selector(
+            "select[name='upload-import_type']")
+        sel = ui.Select(sel)
+        sel.select_by_value("by_url")
+
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-url']")
+        el.send_keys("http://127.0.0.1:8099/apps/{0}.zip".format(pkg_name))
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        # No application data modification is needed
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.wait_for_alert_message()
+        self.check_element_on_page(
+            by.By.XPATH, c.AppPackageDefinitions.format(pkg_name))
+
+    def test_import_package_from_repo(self):
+        """Test package importing via fqn from repo with dependant apps."""
+
+        pkg_name_parent = "PackageParent"
+        pkg_name_child = "PackageChild"
+        pkg_name_grand_child = "PackageGrandChild"
+
+        self._compose_app(pkg_name_parent, require={pkg_name_child: ''})
+        self._compose_app(pkg_name_child,
+                          require={pkg_name_grand_child: '0.1'})
+        pkg_name_grand_child += '.0.1'
+        self._compose_app(pkg_name_grand_child)
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Package Definitions')
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        sel = self.driver.find_element_by_css_selector(
+            "select[name='upload-import_type']")
+        sel = ui.Select(sel)
+        sel.select_by_value("by_name")
+
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-repo_name']")
+        el.send_keys("{0}".format(pkg_name_parent))
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.wait_for_alert_message()
+
+        pkg_names = [pkg_name_parent, pkg_name_child, pkg_name_grand_child]
+        for pkg_name in pkg_names:
+            self.check_element_on_page(
+                by.By.XPATH, c.AppPackageDefinitions.format(pkg_name))

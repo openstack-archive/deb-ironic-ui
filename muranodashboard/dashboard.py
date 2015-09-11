@@ -16,6 +16,8 @@ from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 import horizon
 
+# Load the api rest services into Horizon
+import muranodashboard.api.rest  # noqa
 from muranodashboard import exceptions
 # prevent pyflakes from fail
 assert exceptions
@@ -34,7 +36,7 @@ class ManagePanels(horizon.PanelGroup):
 
 
 class Murano(horizon.Dashboard):
-    name = _(getattr(settings, 'MURANO_DASHBOARD_NAME', "Murano"))
+    name = getattr(settings, 'MURANO_DASHBOARD_NAME', _("Murano"))
     slug = "murano"
     panels = (DeployPanels, ManagePanels)
     default_panel = "environments"

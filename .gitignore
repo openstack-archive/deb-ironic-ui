@@ -1,3 +1,8 @@
+eggs/
+.eggs/
+develop-eggs/
+*.egg-info/
+*.egg
 *~
 *.orig
 *.pyc
@@ -8,6 +13,7 @@
 .noseids
 .venv
 .idea
+.tox
 coverage.xml
 pep8.txt
 pylint.txt
@@ -25,3 +31,5 @@ doc/source/api
 
 # Tests
 muranodashboard/test/functional/config/config.conf
+node_modules
+npm-debug.log

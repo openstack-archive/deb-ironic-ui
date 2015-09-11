@@ -3,9 +3,11 @@ import os
 import yaml
 import zipfile
 
+from oslo_log import log
+
 from muranodashboard.tests.functional import consts
 
-log = logging.getLogger(__name__)
+log = log.getLogger(__name__).logger
 log.setLevel(logging.DEBUG)
 log.addHandler(logging.StreamHandler())
 
@@ -39,21 +41,31 @@ def upload_app_package(client, app_name, data):
         os.remove(consts.Manifest)
 
 
-def compose_package(app_name, manifest, package_dir):
-    def prepare_manifest(app_name, manifest):
-        with open(manifest, 'w') as f:
-            fqn = 'io.murano.apps.' + app_name
-            MANIFEST['FullName'] = fqn
-            MANIFEST['Name'] = app_name
-            MANIFEST['Classes'] = {fqn: 'mock_muranopl.yaml'}
-            f.write(yaml.dump(MANIFEST, default_flow_style=False))
+def compose_package(app_name, manifest, package_dir,
+                    require=None, archive_dir=None):
+    """Composes a murano package
 
-    prepare_manifest(app_name, manifest)
+    Composes package `app_name` with `manifest` file as a template for the
+    manifest and files from `package_dir`.
+    Includes `require` section if any in the manifest file.
+    Puts the resulting .zip file into `acrhive_dir` if present or in the
+    `package_dir`.
+    """
+    with open(manifest, 'w') as f:
+        fqn = 'io.murano.apps.' + app_name
+        mfest_copy = MANIFEST.copy()
+        mfest_copy['FullName'] = fqn
+        mfest_copy['Name'] = app_name
+        mfest_copy['Classes'] = {fqn: 'mock_muranopl.yaml'}
+        if require:
+            mfest_copy['Require'] = require
+        f.write(yaml.dump(mfest_copy, default_flow_style=False))
 
     name = app_name + '.zip'
 
-    __location = os.path.dirname(os.path.abspath(__file__))
-    archive_path = os.path.join(__location, name)
+    if not archive_dir:
+        archive_dir = os.path.dirname(os.path.abspath(__file__))
+    archive_path = os.path.join(archive_dir, name)
 
     with zipfile.ZipFile(archive_path, 'w') as zip_file:
         for root, dirs, files in os.walk(package_dir):

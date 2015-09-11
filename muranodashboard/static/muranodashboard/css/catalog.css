@@ -1,3 +1,35 @@
+table#murano div.table_cell_wrapper div.inline-edit-form input {
+    /*
+     * overrides from form-control, to make inline edit consistent
+     * with the rest of UI
+     */
+    display: block;
+    height: 32px;
+    font-size: 13px;
+    line-height: 1.42857;
+    color: #555;
+    background-color: #fff;
+    background-image: none;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+    -webkit-transition: border-color ease-in-out 0.15s, box-shadow ease-in-out 0.15s;
+    -o-transition: border-color ease-in-out 0.15s, box-shadow ease-in-out 0.15s;
+    transition: border-color ease-in-out 0.15s, box-shadow ease-in-out 0.15s;
+
+    /* Additional styles, not present in form-control */
+    margin: 7px 7px 0 7px;
+    width: calc(100% - 14px);
+}
+
+table#murano div.table_cell_wrapper div.inline-edit-form input:focus {
+    border-color: #66afe9;
+    outline: 0;
+    -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px rgba(102, 175, 233, 0.6);
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 8px rgba(102, 175, 233, 0.6);
+}
+
 .table_header.catalog {
   border-bottom: 2px solid #e5e5e5;
   padding-bottom:5px;
@@ -11,6 +43,19 @@
   width: 100%;
 }
 
+.scrollable-menu {
+  height: auto;
+  max-height: 200px;
+  max-width: 250px;
+  overflow-x: hidden;
+}
+
+.scrollable-menu a {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+
+}
 .murano-dropdown-menu {
   margin-top: -15px;
   margin-left: 20px;
@@ -175,7 +220,6 @@ h3.heading_switcher a.btn {
 .category-title {
   float: left;
   line-height: 26px;
-  margin-right: 8px;
   margin-top: 20px;
   font-family: anivers;
   font-weight: normal;
@@ -199,13 +243,12 @@ h3.heading_switcher a.btn {
 
 #envAppsCategory > button{
   margin-top: 16px;
+  max-width:60%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-#envAppsCategory > h4 {
-  position: absolute;
-  left: -110px;
-  top: 7px;
-}
 
 #envAppsFilter {
   margin-top: 15px;
@@ -213,14 +256,19 @@ h3.heading_switcher a.btn {
 
 div.drop_component {
   border: 2px #ccc dashed;
-  width: 85%;
+  background-color: #EBF3F9;
+  width: 94%;
   margin: 0 auto -2px;
   border-radius: 5px;
+  display: none;
 }
 
 div.drop_component.over {
-  background-color: #ffffc0;
-  border-color: #e8c502;
+  border-color: #3B88C3;
+}
+
+#no_apps_found_message {
+  display: none;
 }
 
 h3.link {
@@ -432,10 +480,6 @@ h3.link .caret {
   .app-list .app .app-actions {
     float: left;
   }
-}
-
-.modal-header.ui-draggable-handle {
-  padding: 0 15px;
 }
 
 .modal-header img {

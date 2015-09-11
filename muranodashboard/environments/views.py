@@ -14,7 +14,6 @@
 
 import base64
 import json
-import logging
 
 from django.core.urlresolvers import reverse
 from django.core.urlresolvers import reverse_lazy
@@ -26,6 +25,7 @@ from horizon.forms import views
 from horizon import tables
 from horizon import tabs
 from horizon.utils import memoized
+from oslo_log import log as logging
 
 from muranoclient.common import exceptions as exc
 from muranodashboard import api as api_utils
@@ -79,6 +79,25 @@ class EnvironmentDetails(tabs.TabbedTableView):
         context['tenant_id'] = self.request.session['token'].tenant['id']
         return context
 
+    def get_tabs(self, request, *args, **kwargs):
+        environment_id = self.kwargs['environment_id']
+        ns_url = "horizon:murano:environments:index"
+        try:
+            deployments = api.deployments_list(self.request,
+                                               environment_id)
+        except exc.HTTPException:
+            msg = _('Unable to retrieve list of deployments')
+            exceptions.handle(self.request, msg, redirect=reverse(ns_url))
+
+        logs = []
+        if deployments:
+            last_deployment = deployments[0]
+            logs = api.deployment_reports(self.request,
+                                          environment_id,
+                                          last_deployment.id)
+        return self.tab_group_class(request, logs=logs,
+                                    **kwargs)
+
 
 class DetailServiceView(tabs.TabbedTableView):
     tab_group_class = env_tabs.ServicesTabs
@@ -119,8 +138,13 @@ class DetailServiceView(tabs.TabbedTableView):
 
 class CreateEnvironmentView(views.ModalFormView):
     form_class = env_forms.CreateEnvironmentForm
+    form_id = 'create_environment_form'
+    modal_header = _('Create Environment')
     template_name = 'environments/create.html'
+    page_title = _('Create Environment')
     context_object_name = 'environment'
+    submit_label = _('Create')
+    submit_url = reverse_lazy('horizon:murano:environments:create_environment')
 
     def get_form(self, form_class):
         if 'next' in self.request.GET:
@@ -139,15 +163,20 @@ class CreateEnvironmentView(views.ModalFormView):
 
 
 class EditEnvironmentView(views.ModalFormView):
-    form_class = env_forms.EditEnvironmentView
+    form_class = env_forms.EditEnvironmentForm
+    form_id = 'update_environment_form'
+    modal_header = _('Edit Environment')
     template_name = 'environments/update.html'
-    context_object_name = 'environment'
+    page_title = _('Edit Environment')
+    submit_url = 'horizon:murano:environments:update_environment'
+    submit_label = _('Edit')
     success_url = reverse_lazy('horizon:murano:environments:index')
 
     def get_context_data(self, **kwargs):
         context = super(EditEnvironmentView, self).get_context_data(**kwargs)
         env_id = getattr(self.get_object(), 'id')
-        context["env_id"] = env_id
+        context['env_id'] = env_id
+        context['submit_url'] = reverse(self.submit_url, args=(env_id,))
         return context
 
     @memoized.memoized_method

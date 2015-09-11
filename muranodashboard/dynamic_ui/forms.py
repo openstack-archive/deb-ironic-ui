@@ -14,12 +14,12 @@
 
 from collections import defaultdict
 import copy
-import logging
 import types
 
 from django import forms
 from django.utils.translation import ugettext_lazy as _
-import yaql
+from oslo_log import log as logging
+from yaql import legacy
 
 import muranodashboard.dynamic_ui.fields as fields
 import muranodashboard.dynamic_ui.helpers as helpers
@@ -44,11 +44,11 @@ TYPES.update({
     'password': fields.PasswordField,
     'integer': fields.IntegerField,
     'databaselist': fields.DatabaseListField,
-    'table': fields.TableField,
     'flavor': fields.FlavorChoiceField,
     'keypair': fields.KeyPairChoiceField,
     'image': fields.ImageChoiceField,
     'azone': fields.AZoneChoiceField,
+    'network': fields.NetworkChoiceField,
     'text': (fields.CharField, forms.Textarea),
     'choice': fields.ChoiceField,
     'floatingip': fields.FloatingIpBooleanField
@@ -73,7 +73,7 @@ def _collect_fields(field_specs, form_name, service):
             del kwargs['widget_media']
 
             class Widget(widget):
-                class Media:
+                class Media(object):
                     js = media.get('js', ())
                     css = media.get('css', {})
             widget = Widget
@@ -103,7 +103,7 @@ def _collect_fields(field_specs, form_name, service):
         elif isinstance(spec, types.ListType):
             return key, [parse_spec(_spec, keys)[1] for _spec in spec]
         elif isinstance(spec, basestring) and helpers.is_localizable(keys):
-            return key, _(spec)
+            return key, spec
         else:
             if key == 'hidden':
                 if spec:
@@ -141,7 +141,9 @@ class DynamicFormMetaclass(forms.forms.DeclarativeFieldsMetaclass):
 
 
 class UpdatableFieldsForm(forms.Form):
-    """This class is supposed to be a base for forms belonging to a FormWizard
+    """Dynamic updatable form
+
+    This class is supposed to be a base for forms belonging to a FormWizard
     descendant, or be used as a mixin for workflows.Action class.
 
     In first case the `request' used in `update' method is provided in
@@ -179,7 +181,7 @@ class ServiceConfigurationForm(UpdatableFieldsForm):
         super(ServiceConfigurationForm, self).__init__(*args, **kwargs)
 
         self.auto_id = '{0}_%s'.format(self.initial.get('app_id'))
-        self.context = yaql.create_context()
+        self.context = legacy.create_context()
         yaql_functions.register(self.context)
 
         self.finalize_fields()
@@ -208,7 +210,8 @@ class ServiceConfigurationForm(UpdatableFieldsForm):
             for validator in self.validators:
                 expr = validator['expr']
                 if not expr.evaluate(data=all_data, context=self.context):
-                    error_messages.append(_(validator.get('message', '')))
+                    error_messages.append(validator.get('message',
+                                          _('Validation Error occurred')))
             if error_messages:
                 raise forms.ValidationError(error_messages)
 

@@ -12,8 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import logging
-
 from django.core.urlresolvers import reverse
 from django import http
 from django.template import defaultfilters
@@ -21,6 +19,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ungettext_lazy
 from horizon import exceptions
 from horizon import tables
+from oslo_log import log as logging
 
 from muranoclient.common import exceptions as exc
 from muranodashboard import api
@@ -106,7 +105,17 @@ class ToggleEnabled(tables.BatchAction):
         )
 
     def action(self, request, obj_id):
-        api.muranoclient(request).packages.toggle_active(obj_id)
+        try:
+            api.muranoclient(request).packages.toggle_active(obj_id)
+            LOG.debug('Toggle Active for package {0}.'.format(obj_id))
+        except exc.HTTPForbidden:
+            msg = _("You are not allowed to perform this operation")
+            LOG.exception(msg)
+            messages.error(request, msg)
+            exceptions.handle(
+                request,
+                msg,
+                redirect=reverse('horizon:murano:packages:index'))
 
 
 class TogglePublicEnabled(tables.BatchAction):
@@ -130,7 +139,17 @@ class TogglePublicEnabled(tables.BatchAction):
         )
 
     def action(self, request, obj_id):
-        api.muranoclient(request).packages.toggle_public(obj_id)
+        try:
+            api.muranoclient(request).packages.toggle_public(obj_id)
+            LOG.debug('Toggle Public for package {0}.'.format(obj_id))
+        except exc.HTTPForbidden:
+            msg = _("You are not allowed to perform this operation")
+            LOG.exception(msg)
+            messages.error(request, msg)
+            exceptions.handle(
+                request,
+                msg,
+                redirect=reverse('horizon:murano:packages:index'))
 
 
 class DeletePackage(tables.DeleteAction):
@@ -155,9 +174,10 @@ class DeletePackage(tables.DeleteAction):
                 redirect=reverse('horizon:murano:packages:index'))
         except Exception:
             LOG.exception(_('Unable to delete package in murano-api server'))
+            url = reverse('horizon:murano:packages:index')
             exceptions.handle(request,
                               _('Unable to remove package.'),
-                              redirect='horizon:murano:packages:index')
+                              redirect=url)
 
 
 class ModifyPackage(tables.LinkAction):
@@ -177,6 +197,7 @@ class PackageDefinitionsTable(tables.DataTable):
     is_public = tables.Column('is_public', verbose_name=_('Public'))
     type = tables.Column('type', verbose_name=_('Type'))
     author = tables.Column('author', verbose_name=_('Author'))
+    version = tables.Column('version', verbose_name=_('Version'))
     owner = tables.Column('owner_id',
                           verbose_name=_('Owner'),
                           hidden=True)
@@ -186,7 +207,7 @@ class PackageDefinitionsTable(tables.DataTable):
             PackageDefinitionsTable, self).get_prev_pagination_string()
         return pagination_string + "&sort_dir=desc"
 
-    class Meta:
+    class Meta(object):
         name = 'packages'
         prev_pagination_param = 'marker'
         verbose_name = _('Package Definitions')

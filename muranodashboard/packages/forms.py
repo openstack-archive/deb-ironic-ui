@@ -13,7 +13,6 @@
 #    under the License.
 
 import json
-import logging
 import sys
 
 from django.core.urlresolvers import reverse
@@ -22,6 +21,7 @@ from django.utils.translation import ugettext_lazy as _
 from horizon import exceptions
 from horizon import forms as horizon_forms
 from horizon import messages
+from oslo_log import log as logging
 
 from muranoclient.common import exceptions as exc
 from muranodashboard import api
@@ -45,15 +45,25 @@ IMPORT_BUNDLE_TYPE_CHOICES = [
 class ImportBundleForm(forms.Form):
     import_type = forms.ChoiceField(
         label=_("Package Bundle Source"),
-        choices=IMPORT_BUNDLE_TYPE_CHOICES)
-
+        choices=IMPORT_BUNDLE_TYPE_CHOICES,
+        widget=forms.Select(attrs={
+            'class': 'switchable',
+            'data-slug': 'source'}))
     url = forms.URLField(
         label=_("Bundle URL"),
         required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'switched',
+            'data-switch-on': 'source',
+            'data-source-by_url': _('Bundle URL')}),
         help_text=_('An external http/https URL to load the bundle from.'))
     name = forms.CharField(
         label=_("Bundle Name"),
         required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'switched',
+            'data-switch-on': 'source',
+            'data-source-by_name': _('Bundle Name')}),
         help_text=_("Name of the bundle."))
 
     def clean(self):
@@ -71,25 +81,43 @@ class ImportBundleForm(forms.Form):
 class ImportPackageForm(forms.Form):
     import_type = forms.ChoiceField(
         label=_("Package Source"),
-        choices=IMPORT_TYPE_CHOICES)
-
+        choices=IMPORT_TYPE_CHOICES,
+        widget=forms.Select(attrs={
+            'class': 'switchable',
+            'data-slug': 'source'}))
     url = horizon_forms.URLField(
         label=_("Package URL"),
         required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'switched',
+            'data-switch-on': 'source',
+            'data-source-by_url': _('Package URL')}),
         help_text=_('An external http/https URL to load the package from.'))
     repo_name = horizon_forms.CharField(
         label=_("Package Name"),
         required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'switched',
+            'data-switch-on': 'source',
+            'data-source-by_name': _('Package Name')}),
         help_text=_(
             'Package name in the repository, usually a fully qualified name'),
     )
+    package = forms.FileField(
+        label=_('Application Package'),
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'switched',
+            'data-switch-on': 'source',
+            'data-source-upload': _('Application Package')}),
+        help_text=_('A local zip file to upload'))
     repo_version = horizon_forms.CharField(
         label=_("Package version"),
+        widget=forms.TextInput(attrs={
+            'class': 'switched',
+            'data-switch-on': 'source',
+            'data-source-by_name': _('Package version')}),
         required=False)
-
-    package = forms.FileField(label=_('Application Package'),
-                              required=False,
-                              help_text=_('A local zip file to upload'))
 
     def __init__(self, *args, **kwargs):
         super(ImportPackageForm, self).__init__(*args, **kwargs)
@@ -178,11 +206,11 @@ class ModifyPackageForm(PackageParamsMixin, horizon_forms.SelfHandlingForm):
                     self.fields['categories'].initial = dict(
                         (key, True) for key in package.categories)
             except (exc.HTTPException, Exception):
-                msg = 'Unable to get list of categories'
+                msg = _('Unable to get list of categories')
                 LOG.exception(msg)
                 redirect = reverse('horizon:murano:packages:index')
                 exceptions.handle(request,
-                                  _(msg),
+                                  msg,
                                   redirect=redirect)
 
     def handle(self, request, data):
@@ -217,7 +245,7 @@ class ModifyPackageForm(PackageParamsMixin, horizon_forms.SelfHandlingForm):
             LOG.exception(msg)
             redirect = reverse('horizon:murano:packages:index')
             exceptions.handle(request,
-                              _(msg),
+                              msg,
                               redirect=redirect)
 
 
@@ -225,7 +253,7 @@ class SelectCategories(forms.Form):
 
     categories = forms.MultipleChoiceField(
         label=_('Application Category'),
-        choices=[('', 'No categories available')],
+        choices=[('', _('No categories available'))],
         required=False)
 
     def __init__(self, *args, **kwargs):
@@ -238,9 +266,9 @@ class SelectCategories(forms.Form):
                 self.fields['categories'].choices = [(c, c)
                                                      for c in categories]
         except (exc.HTTPException, Exception):
-            msg = 'Unable to get list of categories'
+            msg = _('Unable to get list of categories')
             LOG.exception(msg)
             redirect = reverse('horizon:murano:packages:index')
             exceptions.handle(request,
-                              _(msg),
+                              msg,
                               redirect=redirect)

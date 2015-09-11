@@ -13,14 +13,15 @@
 #    under the License.
 
 import json
-import logging
 
+from django.core.urlresolvers import reverse
 from django import forms
 from django.utils.translation import ugettext_lazy as _
 from horizon import exceptions
 from horizon import forms as horizon_forms
 from horizon import messages
 from openstack_dashboard.api import glance
+from oslo_log import log as logging
 
 LOG = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ class MarkImageForm(horizon_forms.SelfHandlingForm):
             return img
         except Exception:
             exceptions.handle(request, _('Unable to mark image'),
-                              redirect='horizon:murano:images:index')
+                              redirect=reverse('horizon:murano:images:index'))
 
     def clean_title(self):
         cleaned_data = super(MarkImageForm, self).clean()

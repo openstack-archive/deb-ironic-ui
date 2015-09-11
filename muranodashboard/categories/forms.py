@@ -12,16 +12,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import logging
-
 from django import forms
 from django.utils.translation import ugettext_lazy as _
 from horizon import forms as horizon_forms
 from horizon import messages
 
 from muranodashboard import api
-
-LOG = logging.getLogger(__name__)
 
 
 class AddCategoryForm(horizon_forms.SelfHandlingForm):
@@ -34,6 +30,6 @@ class AddCategoryForm(horizon_forms.SelfHandlingForm):
         if data:
             with api.handled_exceptions(self.request):
                 category = api.muranoclient(self.request).categories.add(data)
-            messages.success(request,
-                             _('Category {0} created.').format(data['name']))
-            return category
+                messages.success(request, _('Category {0} created.')
+                                 .format(data['name']))
+                return category
