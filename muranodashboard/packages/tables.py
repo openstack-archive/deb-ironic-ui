@@ -18,6 +18,7 @@ from django.template import defaultfilters
 from django.utils.translation import ugettext_lazy as _
 from django.utils.translation import ungettext_lazy
 from horizon import exceptions
+from horizon import messages
 from horizon import tables
 from oslo_log import log as logging
 
