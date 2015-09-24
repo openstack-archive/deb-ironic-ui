@@ -1,3 +1,10 @@
+murano-dashboard (1:1.0.0~rc1-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Fixed (build-)depends for this release.
+
+ -- Thomas Goirand <zigo@debian.org>  Fri, 25 Sep 2015 00:41:07 +0200
+
 murano-dashboard (1:1.0.0~b3-1) unstable; urgency=medium
 
   * New upstream release.
