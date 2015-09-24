@@ -29,7 +29,7 @@ override_dh_auto_install:
 	dh_auto_install -O--buildsystem=python_distutils
 
 	# Activates the murano-dashboard plugin in Horizon
-	set -e && for pyvers in $(PYTHONS); do \
+	set -e ; for pyvers in $(PYTHONS); do \
 		mkdir -p $(CURDIR)/debian/python-murano-dashboard/usr/lib/python$$pyvers/dist-packages/openstack_dashboard/enabled ; \
 		cp $(CURDIR)/muranodashboard/local/_50_murano.py $(CURDIR)/debian/python-murano-dashboard/usr/lib/python$$pyvers/dist-packages/openstack_dashboard/enabled ; \
 	done
