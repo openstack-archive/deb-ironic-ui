@@ -24,8 +24,6 @@ from horizon import exceptions
 from horizon.forms import views
 from horizon import tables
 from horizon import tabs
-from horizon.utils import memoized
-from oslo_log import log as logging
 
 from muranoclient.common import exceptions as exc
 from muranodashboard import api as api_utils
@@ -33,9 +31,6 @@ from muranodashboard.environments import api
 from muranodashboard.environments import forms as env_forms
 from muranodashboard.environments import tables as env_tables
 from muranodashboard.environments import tabs as env_tabs
-
-
-LOG = logging.getLogger(__name__)
 
 
 class IndexView(tables.DataTableView):
@@ -160,41 +155,6 @@ class CreateEnvironmentView(views.ModalFormView):
             return reverse("horizon:murano:environments:services",
                            args=[env_id])
         return reverse_lazy('horizon:murano:environments:index')
-
-
-class EditEnvironmentView(views.ModalFormView):
-    form_class = env_forms.EditEnvironmentForm
-    form_id = 'update_environment_form'
-    modal_header = _('Edit Environment')
-    template_name = 'environments/update.html'
-    page_title = _('Edit Environment')
-    submit_url = 'horizon:murano:environments:update_environment'
-    submit_label = _('Edit')
-    success_url = reverse_lazy('horizon:murano:environments:index')
-
-    def get_context_data(self, **kwargs):
-        context = super(EditEnvironmentView, self).get_context_data(**kwargs)
-        env_id = getattr(self.get_object(), 'id')
-        context['env_id'] = env_id
-        context['submit_url'] = reverse(self.submit_url, args=(env_id,))
-        return context
-
-    @memoized.memoized_method
-    def get_object(self):
-        environment_id = self.kwargs['environment_id']
-        try:
-            return api.environment_get(self.request, environment_id)
-        except Exception:
-            redirect = reverse("horizon:murano:environments:index")
-            msg = _('Unable to retrieve environment details.')
-            exceptions.handle(self.request, msg, redirect=redirect)
-
-    def get_initial(self):
-        initial = super(EditEnvironmentView, self).get_initial()
-        name = getattr(self.get_object(), 'name', '')
-        initial.update({'environment_id': self.kwargs['environment_id'],
-                        'name': name})
-        return initial
 
 
 class DeploymentDetailsView(tabs.TabbedTableView):

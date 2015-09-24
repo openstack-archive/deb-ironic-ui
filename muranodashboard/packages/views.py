@@ -14,6 +14,7 @@
 
 import json
 import sys
+import urlparse
 
 from django.core.files import storage
 from django.core.urlresolvers import reverse
@@ -34,6 +35,7 @@ from horizon.utils import functions as utils
 from muranoclient.common import exceptions as exc
 from muranoclient.common import utils as muranoclient_utils
 from openstack_dashboard.api import glance
+from openstack_dashboard.api import keystone
 from oslo_log import log as logging
 
 from muranodashboard import api
@@ -58,7 +60,7 @@ def is_app(wizard):
     """Check if we're uploading an application
 
     Return true if uploading package is an application.
-    In that case, category selection from need to be shown.
+    In that case, category selection form need to be shown.
     """
     step_data = wizard.storage.get_step_data('upload')
     if step_data:
@@ -87,6 +89,8 @@ class PackageDefinitionsView(horizon_tables.DataTableView):
         }
         marker = self.request.GET.get(
             tables.PackageDefinitionsTable._meta.pagination_param, None)
+
+        opts = self.get_filters(opts)
 
         packages = []
         page_size = utils.get_page_size(self.request)
@@ -118,6 +122,24 @@ class PackageDefinitionsView(horizon_tables.DataTableView):
                 else:
                     self._more = extra
 
+        # Add information about project tenant for admin user
+        if self.request.user.is_superuser:
+            tenants = []
+            try:
+                tenants, _more = keystone.tenant_list(self.request)
+            except Exception:
+                exceptions.handle(self.request,
+                                  _("Unable to retrieve project list."))
+            tenent_name_by_id = {tenant.id: tenant.name for tenant in tenants}
+            for i, p in enumerate(packages):
+                packages[i].tenant_name = tenent_name_by_id.get(p.owner_id)
+        else:
+            current_tenant = self.request.session['token'].tenant
+            for i, package in enumerate(packages):
+                if package.owner_id == current_tenant['id']:
+                    packages[i].tenant_name = current_tenant['name']
+                else:
+                    packages[i].tenant_name = 'other'
         return packages
 
     def get_context_data(self, **kwargs):
@@ -126,6 +148,16 @@ class PackageDefinitionsView(horizon_tables.DataTableView):
         context['tenant_id'] = self.request.session['token'].tenant['id']
         return context
 
+    def get_filters(self, filters):
+        filter_action = self.table._meta._filter_action
+        if filter_action:
+            filter_field = self.table.get_filter_field()
+            if filter_action.is_api_filter(filter_field):
+                filter_string = self.table.get_filter_string()
+                if filter_field and filter_string:
+                    filters[filter_field] = filter_string
+        return filters
+
 
 class ImportBundleWizard(views.ModalFormMixin,
                          wizard_views.SessionWizardView):
@@ -133,7 +165,9 @@ class ImportBundleWizard(views.ModalFormMixin,
 
     def get_context_data(self, **kwargs):
         context = super(ImportBundleWizard, self).get_context_data(**kwargs)
-        context['murano_repo_url'] = packages_consts.MURANO_REPO_URL
+        repo_url = urlparse.urlparse(packages_consts.MURANO_REPO_URL)
+        context['murano_repo_url'] = "{}://{}".format(
+            repo_url.scheme, repo_url.netloc)
         return context
 
     def get_form_initial(self, step):
@@ -170,8 +204,12 @@ class ImportBundleWizard(views.ModalFormMixin,
             try:
                 bundle = muranoclient_utils.Bundle.from_file(f)
             except Exception as e:
-                msg = _("Bundle creation failed"
-                        "Reason: {0}").format(e)
+                if '(404)' in e.message:
+                    msg = _("Bundle creation failed."
+                            "Reason: Can't find Bundle name from repository.")
+                else:
+                    msg = _("Bundle creation failed."
+                            "Reason: {0}").format(e)
                 LOG.exception(msg)
                 messages.error(self.request, msg)
                 raise exceptions.Http302(
@@ -271,7 +309,9 @@ class ImportPackageWizard(views.ModalFormMixin,
 
     def get_context_data(self, **kwargs):
         context = super(ImportPackageWizard, self).get_context_data(**kwargs)
-        context['murano_repo_url'] = packages_consts.MURANO_REPO_URL
+        repo_url = urlparse.urlparse(packages_consts.MURANO_REPO_URL)
+        context['murano_repo_url'] = "{}://{}".format(
+            repo_url.scheme, repo_url.netloc)
         return context
 
     def done(self, form_list, **kwargs):
@@ -370,8 +410,12 @@ class ImportPackageWizard(views.ModalFormMixin,
                 package = muranoclient_utils.Package.from_file(f)
                 name = package.manifest['FullName']
             except Exception as e:
-                msg = _("Package creation failed"
-                        "Reason: {0}").format(e)
+                if '(404)' in e.message:
+                    msg = _("Package creation failed."
+                            "Reason: Can't find Package name from repository.")
+                else:
+                    msg = _("Package creation failed."
+                            "Reason: {0}").format(e)
                 LOG.exception(msg)
                 messages.error(self.request, msg)
                 raise exceptions.Http302(

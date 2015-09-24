@@ -43,7 +43,7 @@ class ImportPackage(tables.LinkAction):
     classes = ('ajax-modal',)
     icon = "plus"
 
-    def allowed(self, request, image):
+    def allowed(self, request, package):
         _allowed = False
         with api.handled_exceptions(request):
             client = api.muranoclient(request)
@@ -51,11 +51,18 @@ class ImportPackage(tables.LinkAction):
         return _allowed
 
 
+class PackagesFilterAction(tables.FilterAction):
+    name = "filter_packages"
+    filter_type = "server"
+    filter_choices = (('search', _("Name"), True),
+                      ('type', _("Type"), True))
+
+
 class DownloadPackage(tables.Action):
     name = 'download_package'
     verbose_name = _('Download Package')
 
-    def allowed(self, request, image):
+    def allowed(self, request, package):
         return True
 
     @staticmethod
@@ -188,20 +195,18 @@ class ModifyPackage(tables.LinkAction):
     classes = ('ajax-modal',)
     icon = "edit"
 
-    def allowed(self, request, environment):
+    def allowed(self, request, package):
         return True
 
 
 class PackageDefinitionsTable(tables.DataTable):
     name = tables.Column('name', verbose_name=_('Package Name'))
+    tenant_name = tables.Column('tenant_name', verbose_name=_('Tenant Name'))
     enabled = tables.Column('enabled', verbose_name=_('Active'))
     is_public = tables.Column('is_public', verbose_name=_('Public'))
     type = tables.Column('type', verbose_name=_('Type'))
     author = tables.Column('author', verbose_name=_('Author'))
     version = tables.Column('version', verbose_name=_('Version'))
-    owner = tables.Column('owner_id',
-                          verbose_name=_('Owner'),
-                          hidden=True)
 
     def get_prev_pagination_string(self):
         pagination_string = super(
@@ -213,7 +218,8 @@ class PackageDefinitionsTable(tables.DataTable):
         prev_pagination_param = 'marker'
         verbose_name = _('Package Definitions')
         template = 'common/_data_table.html'
-        table_actions = (ImportPackage,
+        table_actions = (PackagesFilterAction,
+                         ImportPackage,
                          ImportBundle,
                          ToggleEnabled,
                          TogglePublicEnabled,

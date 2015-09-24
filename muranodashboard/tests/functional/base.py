@@ -184,7 +184,7 @@ class UITestCase(BaseDeps):
     def create_environment(self, env_name, by_id=False):
         if by_id:
             self.driver.find_element_by_id(
-                'murano__action_CreateEnvironment').click()
+                'environments__action_CreateEnvironment').click()
         else:
             self.driver.find_element_by_css_selector(
                 consts.CreateEnvironment).click()
@@ -224,9 +224,9 @@ class UITestCase(BaseDeps):
 
     def select_action_for_environment(self, env_name, action):
         element_id = self.get_element_id(env_name)
-        more_button = consts.More.format('murano', element_id)
+        more_button = consts.More.format('environments', element_id)
         self.driver.find_element_by_xpath(more_button).click()
-        btn_id = "murano__row_{0}__action_{1}".format(element_id, action)
+        btn_id = "environments__row_{0}__action_{1}".format(element_id, action)
         self.driver.find_element_by_id(btn_id).click()
 
     def wait_for_alert_message(self):
@@ -358,17 +358,22 @@ class ApplicationTestCase(ImageTestCase):
                 ".//*[@id='packages__row_{0}__action_{1}']".
                 format(package_id, action)).click()
 
-    def check_package_parameter(self, package_id, column, value):
-        columns = {'Active': 3, 'Public': 4}
-
+    def check_package_parameter(self, selector, column, value):
+        columns = {'Tenant Name': 3, 'Active': 4, 'Public': 5}
         column_num = str(columns[column])
-
         column_element = self.driver.find_element_by_xpath(
-            "//tr[@data-object-id='{0}']/td[{1}]".format(package_id,
-                                                         column_num))
+            "//tr[{0}]/td[{1}]".format(selector, column_num))
         self.assertTrue(column_element.text == value,
                         "'{0}' column doesn't contain '{1}'".format(column,
                                                                     value))
+
+    def check_package_parameter_by_id(self, package_id, column, value):
+        selector = '@data-object-id="{0}"'.format(package_id)
+        self.check_package_parameter(selector, column, value)
+
+    def check_package_parameter_by_name(self, package_name, column, value):
+        selector = '@data-display="{0}"'.format(package_name)
+        self.check_package_parameter(selector, column, value)
 
     def modify_package(self, param, value):
         self.fill_field(by.By.ID, 'id_{0}'.format(param), value)
