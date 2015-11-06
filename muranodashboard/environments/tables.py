@@ -24,8 +24,6 @@ from horizon import exceptions
 from horizon import forms
 from horizon import messages
 from horizon import tables
-from horizon.utils import filters
-from muranoclient.common import exceptions as exc
 from oslo_log import log as logging
 
 from muranodashboard import api as api_utils
@@ -34,8 +32,8 @@ from muranodashboard.catalog import views as catalog_views
 from muranodashboard.environments import api
 from muranodashboard.environments import consts
 from muranodashboard.environments import forms as env_forms
-from muranodashboard.packages import consts as pkg_consts
 
+from muranoclient.common import exceptions as exc
 
 LOG = logging.getLogger(__name__)
 
@@ -308,8 +306,7 @@ class EnvironmentsTable(tables.DataTable):
                              validators=env_forms.NAME_VALIDATORS,
                              error_messages={'invalid':
                                              env_forms.ENV_NAME_HELP_TEXT},),
-                         update_action=UpdateName,
-                         truncate=40)
+                         update_action=UpdateName)
 
     status = tables.Column('status',
                            verbose_name=_('Status'),
@@ -356,8 +353,7 @@ class ServicesTable(tables.DataTable):
                               verbose_name=_('Last operation'),
                               filters=(defaultfilters.urlize, ))
     operation_updated = tables.Column('operation_updated',
-                                      verbose_name=_('Time updated'),
-                                      filters=(filters.parse_isotime,))
+                                      verbose_name=_('Time updated'))
 
     def get_object_id(self, datum):
         return datum['?']['id']
@@ -413,12 +409,6 @@ class ServicesTable(tables.DataTable):
             actions.extend(sorted(app_actions, key=lambda x: x.name))
         return actions
 
-    def get_repo_url(self):
-        return pkg_consts.MURANO_REPO_URL
-
-    def get_pkg_def_url(self):
-        return reverse('horizon:murano:packages:index')
-
     class Meta(object):
         name = 'services'
         verbose_name = _('Component List')
@@ -447,11 +437,9 @@ class ShowDeploymentDetails(tables.LinkAction):
 
 class DeploymentsTable(tables.DataTable):
     started = tables.Column('started',
-                            verbose_name=_('Time Started'),
-                            filters=(filters.parse_isotime,))
+                            verbose_name=_('Time Started'))
     finished = tables.Column('finished',
-                             verbose_name=_('Time Finished'),
-                             filters=(filters.parse_isotime,))
+                             verbose_name=_('Time Finished'))
 
     status = tables.Column(
         'state',

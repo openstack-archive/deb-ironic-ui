@@ -20,7 +20,6 @@ from django.utils.translation import ungettext_lazy
 from horizon import exceptions
 from horizon import messages
 from horizon import tables
-from horizon.utils import filters
 from oslo_log import log as logging
 
 from muranoclient.common import exceptions as exc
@@ -96,7 +95,6 @@ class DownloadPackage(tables.Action):
 class ToggleEnabled(tables.BatchAction):
     name = 'toggle_enabled'
     verbose_name = _("Toggle Enabled")
-    icon = "toggle-on"
 
     @staticmethod
     def action_present(count):
@@ -131,7 +129,6 @@ class ToggleEnabled(tables.BatchAction):
 class TogglePublicEnabled(tables.BatchAction):
     name = 'toggle_public_enabled'
     verbose_name = _("Toggle Public")
-    icon = "share-alt"
 
     @staticmethod
     def action_present(count):
@@ -209,14 +206,7 @@ class PackageDefinitionsTable(tables.DataTable):
     is_public = tables.Column('is_public', verbose_name=_('Public'))
     type = tables.Column('type', verbose_name=_('Type'))
     author = tables.Column('author', verbose_name=_('Author'))
-    version = tables.Column(lambda obj: getattr(obj, 'version', None),
-                            verbose_name=_('Version'))
-    created_time = tables.Column('created',
-                                 verbose_name=_('Created'),
-                                 filters=(filters.parse_isotime,))
-    updated_time = tables.Column('updated',
-                                 verbose_name=_('Updated'),
-                                 filters=(filters.parse_isotime,))
+    version = tables.Column('version', verbose_name=_('Version'))
 
     def get_prev_pagination_string(self):
         pagination_string = super(
