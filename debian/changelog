@@ -8,6 +8,7 @@ murano-dashboard (1:1.0.1-2) unstable; urgency=medium
 murano-dashboard (1:1.0.1-1) unstable; urgency=medium
 
   * New upstream release.
+  * Fixed debian/copyright (bin folder removed, removing BSD-2-clause).
 
  -- Thomas Goirand <zigo@debian.org>  Fri, 06 Nov 2015 17:33:54 +0100
 
