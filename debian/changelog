@@ -1,6 +1,7 @@
 murano-dashboard (1:1.0.1-2) unstable; urgency=medium
 
   * Installs correctly _50_murano.py in the enabled folder of Horizon.
+  * Installing murano-dashboard does the offline compress now.
 
  -- Thomas Goirand <zigo@debian.org>  Wed, 18 Nov 2015 11:06:05 +0100
 
