@@ -1,0 +1,22 @@
+From: Kirill Zaitsev <kzaitsev@mirantis.com>
+Date: Fri, 13 Nov 2015 15:03:56 +0000 (+0300)
+Subject: Use fontawesome instead of glyphicon
+X-Git-Url: https://review.openstack.org/gitweb?p=openstack%2Fmurano-dashboard.git;a=commitdiff_plain;h=3f7c46ba48c5d2c9e68233f21e1b75d8d430a2ad
+Bug-Ubuntu: https://bugs.launchpad.net/murano/+bug/1516042
+Change-Id: I38eb851d6c07cc9d5e50614254126525d0e1cca2
+Origin: upstream, https://review.openstack.org/#/c/245195/
+Last-Update: 2015-11-18
+
+diff --git a/muranodashboard/templates/catalog/index.html b/muranodashboard/templates/catalog/index.html
+index be8b18d..107d5d8 100644
+--- a/muranodashboard/templates/catalog/index.html
++++ b/muranodashboard/templates/catalog/index.html
+@@ -69,7 +69,7 @@
+                                 <input class="form-control"
+                                        value="{{ search }}" type="text"
+                                        name="search" placeholder="Filter">
+-                                <span class="glyphicon glyphicon-search form-control-feedback search-icon"></span>
++                                <span class="fa fa-search form-control-feedback search-icon"></span>
+                             </div>
+                             <div class="form-group">
+                                 <button type="submit"
