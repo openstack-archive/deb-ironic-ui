@@ -33,6 +33,8 @@ override_dh_auto_install:
 		mkdir -p $(CURDIR)/debian/python-murano-dashboard/usr/lib/python$$pyvers/dist-packages/openstack_dashboard/enabled ; \
 		cp $(CURDIR)/muranodashboard/local/_50_murano.py $(CURDIR)/debian/python-murano-dashboard/usr/lib/python$$pyvers/dist-packages/openstack_dashboard/enabled ; \
 	done
+	mkdir -p $(CURDIR)/debian/python-murano-dashboard/usr/share/openstack-dashboard/openstack_dashboard/enabled
+	cp $(CURDIR)/muranodashboard/local/_50_murano.py $(CURDIR)/debian/python-murano-dashboard/usr/share/openstack-dashboard/openstack_dashboard/enabled
 
 	# Copy the static files of murano-dashboard into the folder served
 	# as /$WEBROOT/static for the Horizon vhost
