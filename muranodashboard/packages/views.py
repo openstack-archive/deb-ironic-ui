@@ -41,7 +41,6 @@ from oslo_log import log as logging
 from muranodashboard import api
 from muranodashboard.api import packages as pkg_api
 from muranodashboard.catalog import views as catalog_views
-from muranodashboard import client_overrides
 from muranodashboard.common import utils as muranodashboard_utils
 from muranodashboard.environments import consts
 from muranodashboard.packages import consts as packages_consts
@@ -55,8 +54,6 @@ FORMS = [('upload', forms.ImportPackageForm),
          ('add_category', forms.SelectCategories)]
 
 BUNDLE_FORMS = [('upload', forms.ImportBundleForm), ]
-
-client_overrides.override()
 
 
 def is_app(wizard):
@@ -142,7 +139,7 @@ class PackageDefinitionsView(horizon_tables.DataTableView):
                 if package.owner_id == current_tenant['id']:
                     packages[i].tenant_name = current_tenant['name']
                 else:
-                    packages[i].tenant_name = 'other'
+                    packages[i].tenant_name = _('UNKNOWN')
         return packages
 
     def get_context_data(self, **kwargs):
@@ -245,11 +242,15 @@ class ImportBundleWizard(views.ModalFormMixin,
                             image_specs=dep_package.images(),
                             base_url=base_url)
                         for img in imgs:
-                            msg = _("Added {0}, {1} image to glance").format(
-                                img['name'], img['id'],
-                            )
-                            messages.success(self.request, msg)
-                            LOG.info(msg)
+                            msg = _("Trying to add {0} image to glance. "
+                                    "Image will be ready for deployment after"
+                                    " successful upload").format(img['name'],)
+                            messages.warning(self.request, msg)
+                            log_msg = _("Trying to add {0}, {1} image to "
+                                        "glance. Image will be ready for "
+                                        "deployment after successful upload")\
+                                .format(img['name'], img['id'],)
+                            LOG.info(log_msg)
                     except Exception as e:
                         msg = _("Error {0} occurred while installing "
                                 "images for {1}").format(e, dep_name)

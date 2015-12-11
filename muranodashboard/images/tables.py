@@ -52,8 +52,11 @@ class MarkedImagesTable(tables.DataTable):
         link='horizon:project:images:images:detail',
         verbose_name=_('Image')
     )
-    type = tables.Column('type', verbose_name=_('Type'))
-    title = tables.Column('title', verbose_name=_('Title'))
+    type = tables.Column(lambda obj: getattr(obj, 'type', None),
+                         verbose_name=_('Type'))
+    title = tables.Column(lambda obj: getattr(obj, 'title', None),
+                          verbose_name=_('Title'),
+                          truncate=40)
 
     class Meta(object):
         name = 'marked_images'
