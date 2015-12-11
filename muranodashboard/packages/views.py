@@ -328,6 +328,9 @@ class ImportPackageWizard(views.ModalFormMixin,
         dep_pkgs = self.storage.get_step_data('upload').get(
             'dependencies', [])
 
+        installed_images = self.storage.get_step_data('upload').get(
+            'images', [])
+
         redirect = reverse('horizon:murano:packages:index')
         dep_data = {'enabled': data['enabled'],
                     'is_public': data['is_public']}
@@ -341,6 +344,20 @@ class ImportPackageWizard(views.ModalFormMixin,
                     .format(dep_pkg.fully_qualified_name, e)
                 LOG.warning(msg)
                 messages.warning(self.request, msg)
+
+        # Images have been imported as private images during the 'upload' step
+        # If the package is public, make the required images public
+        if data['is_public']:
+            glance_client = glance.glanceclient(self.request, version='1')
+            for img in installed_images:
+                try:
+                    glance_client.images.update(img['id'], is_public=True)
+                    LOG.debug('Success update for image {0}'.format(img['id']))
+                except Exception as e:
+                    msg = _("Error {0} occurred while setting image {1}, {2} "
+                            "public").format(e, img['name'], img['id'])
+                    messages.error(self.request, msg)
+                    LOG.exception(msg)
 
         try:
             data['tags'] = [t.strip() for t in data['tags'].split(',')]
@@ -431,11 +448,16 @@ class ImportPackageWizard(views.ModalFormMixin,
                         image_specs=package.images(),
                         base_url=base_url)
                     for img in imgs:
-                        msg = _("Added {0}, {1} image to glance").format(
-                            img['name'], img['id'],
-                        )
-                        messages.success(self.request, msg)
-                        LOG.info(msg)
+                        msg = _("Trying to add {0} image to glance. "
+                                "Image will be ready for deployment after "
+                                "successful upload").format(img['name'],)
+                        messages.warning(self.request, msg)
+                        log_msg = _("Trying to add {0}, {1} image to "
+                                    "glance. Image will be ready for "
+                                    "deployment after successful upload")\
+                            .format(img['name'], img['id'],)
+                        LOG.info(log_msg)
+                        step_data['images'].append(img)
                 except Exception as e:
                     msg = _("Error {0} occurred while installing "
                             "images for {1}").format(e, name)
@@ -446,6 +468,7 @@ class ImportPackageWizard(views.ModalFormMixin,
             glance_client = glance.glanceclient(self.request, version='1')
             original_package = reqs.pop(name)
             step_data['dependencies'] = []
+            step_data['images'] = []
             for dep_name, dep_package in reqs.iteritems():
                 _ensure_images(dep_name, dep_package)
                 try:
