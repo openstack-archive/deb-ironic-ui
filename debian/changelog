@@ -1,4 +1,4 @@
-murano-dashboard (1:2.0.0~b1-1) experimental; urgency=medium
+murano-dashboard (1:2.0.0~b2-1) experimental; urgency=medium
 
   * New upstream release.
   * Added "Use fontawesome instead of glyphicon" patch.
