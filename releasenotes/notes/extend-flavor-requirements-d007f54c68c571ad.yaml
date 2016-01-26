@@ -1,0 +1,6 @@
+---
+
+features:
+  - Requirements for the flavor field accepts 'max_vcpus' 'max_disk' and
+    'max_memory_mb'. Previously only minimum values can be specified in the
+    flavor requirements.

@@ -159,7 +159,9 @@ class ImportPackageForm(forms.Form):
 
 
 class PackageParamsMixin(forms.Form):
-    name = forms.CharField(label=_('Name'))
+    name = forms.CharField(label=_('Name'),
+                           max_length=80,
+                           help_text='80 characters max.')
     tags = forms.CharField(label=_('Tags'),
                            required=False,
                            help_text='Provide comma-separated list of words,'
@@ -255,7 +257,7 @@ class ModifyPackageForm(PackageParamsMixin, horizon_forms.SelfHandlingForm):
                     # Let horizon operate with original exception
                     raise exc_info[0], exc_info[1], exc_info[2]
 
-            msg = _('Failed to upload the package. {0}').format(reason)
+            msg = _('Failed to modify the package. {0}').format(reason)
             LOG.exception(msg)
             redirect = reverse('horizon:murano:packages:index')
             exceptions.handle(request,

@@ -23,6 +23,7 @@ from django.core import validators as django_validator
 from django import forms
 from django.http import Http404
 from django.template import defaultfilters
+from django.utils.encoding import force_text
 from django.utils import html
 from django.utils.translation import ugettext_lazy as _
 from horizon import exceptions
@@ -31,7 +32,8 @@ from horizon import messages
 from openstack_dashboard.api import glance
 from openstack_dashboard.api import nova
 from oslo_log import log as logging
-import yaql
+import six
+from yaql import legacy
 
 from muranoclient.common import exceptions as muranoclient_exc
 from muranodashboard.api import packages as pkg_api
@@ -52,7 +54,7 @@ def with_request(func):
     """
     def update(self, initial, request=None, **kwargs):
         initial_request = initial.get('request')
-        for key, value in initial.iteritems():
+        for key, value in six.iteritems(initial):
             if key != 'request' and key not in kwargs:
                 kwargs[key] = value
 
@@ -75,7 +77,7 @@ def make_yaql_validator(validator_property):
     message = validator_property.get('message', '')
 
     def validator_func(value):
-        context = yaql.create_context()
+        context = legacy.create_context()
         context['$'] = value
         if not expr.evaluate(context=context):
             raise forms.ValidationError(message)
@@ -157,11 +159,11 @@ class CustomPropertiesField(forms.Field):
                  *args, **kwargs):
         self.description = description
         self.description_title = (description_title or
-                                  unicode(kwargs.get('label', '')))
+                                  force_text(kwargs.get('label', '')))
 
         for arg in FIELD_ARGS_TO_ESCAPE:
             if kwargs.get(arg):
-                kwargs[arg] = html.escape(unicode(kwargs[arg]))
+                kwargs[arg] = html.escape(force_text(kwargs[arg]))
 
         validators = []
         for validator in kwargs.get('validators', []):
@@ -235,6 +237,7 @@ class PasswordField(CharField):
             js = ('muranodashboard/js/passwordfield.js',)
 
     def __init__(self, label, *args, **kwargs):
+        self.confirm_input = kwargs.pop('confirm_input', True)
         help_text = kwargs.get('help_text')
         if not help_text:
             help_text = _('Enter a complex password with at least one letter, \
@@ -312,6 +315,15 @@ class FlavorChoiceField(ChoiceField):
                     continue
                 if flavor.ram < self.requirements.get('min_memory_mb', 0):
                     continue
+                if 'max_vcpus' in self.requirements:
+                    if flavor.vcpus > self.requirements['max_vcpus']:
+                        continue
+                if 'max_disk' in self.requirements:
+                    if flavor.disk > self.requirements['max_disk']:
+                        continue
+                if 'max_memory_mb' in self.requirements:
+                    if flavor.ram > self.requirements['max_memory_mb']:
+                        continue
                 self.choices.append((flavor.name, flavor.name))
         # Search through selected flavors
         for flavor_name, flavor_name in self.choices:
@@ -384,7 +396,7 @@ class ImageChoiceField(ChoiceField):
                     continue
             image_map[image.id] = title
 
-        for id_, title in sorted(image_map.iteritems(), key=lambda e: e[1]):
+        for id_, title in sorted(six.iteritems(image_map), key=lambda e: e[1]):
             image_choices.append((id_, title))
         if image_choices:
             image_choices.insert(0, ("", _("Select Image")))

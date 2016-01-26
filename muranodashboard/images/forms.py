@@ -35,7 +35,7 @@ def filter_murano_images(images, request=None):
                 metadata = json.loads(metadata)
             except ValueError:
                 msg = _('Invalid metadata for image: {0}').format(image.id)
-                LOG.warn(msg)
+                LOG.warning(msg)
                 if request:
                     exceptions.handle(request, msg)
             else:
@@ -50,7 +50,8 @@ class MarkImageForm(horizon_forms.SelfHandlingForm):
     _metadata = {
         'windows.2012': ' Windows Server 2012',
         'linux': 'Generic Linux',
-        'cirros.demo': 'Murano Demo'
+        'cirros.demo': 'Murano Demo',
+        'rhel6': 'Test new type'
     }
 
     image = forms.ChoiceField(label='Image')

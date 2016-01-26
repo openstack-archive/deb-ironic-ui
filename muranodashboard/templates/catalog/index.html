@@ -36,7 +36,8 @@
                     <h3 class="heading_switcher">{% trans 'App Category:' %}
                         <div class="header dropdown">
                             <a href="#"
-                               class="btn btn-sm btn-default dropdown-toggle">
+                               class="btn btn-sm btn-default dropdown-toggle"
+                               data-toggle="dropdown">
                                 {{ current_category|truncatechars:30 }} <b
                                     class="caret"></b></a>
                             <ul class="dropdown-menu row_actions clearfix scrollable-menu">
@@ -68,12 +69,12 @@
                                 <input class="form-control"
                                        value="{{ search }}" type="text"
                                        name="search" placeholder="Filter">
-                                <span class="glyphicon glyphicon-search form-control-feedback search-icon"></span>
+                                <span class="fa fa-search form-control-feedback search-icon"></span>
                             </div>
                             <div class="form-group">
                                 <button type="submit"
                                         class="btn btn-default btn-sm"
-                                        id="apps__action_filter">Filter
+                                        id="apps__action_filter">{% trans "Filter" %}
                                 </button>
                             </div>
                         </form>
