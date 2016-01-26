@@ -2,12 +2,16 @@ Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: murano-dashboard
 Source: https://github.com/openstack/murano-dashboard.git
 
-Files: debian/*
-Copyright: (c) 2012 Thomas Goirand <zigo@debian.org>
-License: Apache-2.0
-
 Files: *
 Copyright: (c) 2013, Hewlett-Packard Development Company, L.P.
+           (c) 2013-2016, Mirantis, Inc.
+           (c) 2013, IBM Corp.
+           (c) 2010-2016, OpenStack Foundation
+           (c) 2010, US Government as represented by the Administratof of NASA
+License: Apache-2.0
+
+Files: debian/*
+Copyright: (c) 2014-2016, Thomas Goirand <zigo@debian.org>
 License: Apache-2.0
 
 Files: tools/rfc.sh
