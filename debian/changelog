@@ -1,7 +1,7 @@
 murano-dashboard (1:2.0.0~b2-1) experimental; urgency=medium
 
   * New upstream release.
-  * Added "Use fontawesome instead of glyphicon" patch.
+  * Fixed (build-)depends for this release.
 
  -- Thomas Goirand <zigo@debian.org>  Fri, 11 Dec 2015 10:53:20 +0100
 
