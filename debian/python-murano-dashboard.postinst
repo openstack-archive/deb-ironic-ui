@@ -3,10 +3,41 @@
 set -e
 
 if [ "$1" = "configure" ] ; then
+	# (tlbr) Run of collectstatic is required but do not run it until easy switch for
+	# for Horizon package will be implemented.
+	#/usr/share/openstack-dashboard/manage.py collectstatic --clear --noinput
+
 	# Compress the JS and CSS with python-compressor and python-lesscpy
 	/usr/share/openstack-dashboard/manage.py compress --force
-	rm /var/lib/openstack-dashboard/secret-key/.secret_key_store
-	chown -R www-data /var/lib/openstack-dashboard/secret-key
+
+	if [ -f /var/lib/openstack-dashboard/secret-key/.secret_key_store ]; then
+		rm /var/lib/openstack-dashboard/secret-key/.secret_key_store
+	fi
+
+	if [ -d /var/lib/openstack-dashboard/secret-key ]; then
+		chown -R www-data /var/lib/openstack-dashboard/secret-key
+	fi
+
+	if [ -d /var/lib/openstack-dashboard/static ]; then
+		chown -R www-data /var/lib/openstack-dashboard/static
+	fi
+
+	DSHB_SETTINGS_LOC='/etc/openstack-dashboard/local_settings.py'
+	if [ -f "$DSHB_SETTINGS_LOC" ]; then
+		mkdir -p /var/cache/murano-dashboard
+		chown -R horizon:www-data /var/cache/murano-dashboard
+		chmod 775 /var/cache/murano-dashboard
+
+		if grep -Eq '^METADATA_CACHE_DIR=' $DSHB_SETTINGS_LOC; then
+			sed -i '/^METADATA_CACHE_DIR=/{s#.*#METADATA_CACHE_DIR="/var/cache/murano-dashboard"#}' $DSHB_SETTINGS_LOC
+		else
+			sed -i '$aMETADATA_CACHE_DIR="/var/cache/murano-dashboard"' $DSHB_SETTINGS_LOC
+		fi
+	fi
+
+	if [ -x /etc/init.d/apache2 ]; then
+		invoke-rc.d --quiet apache2 reload
+	fi
 fi
 
 #DEBHELPER#
