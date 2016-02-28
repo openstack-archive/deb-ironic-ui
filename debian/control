@@ -41,8 +41,8 @@ Build-Depends-Indep: openstack-dashboard (>= 8.0.0),
                      python-yaql (>= 1.0.1),
 Standards-Version: 3.9.6
 Homepage: https://github.com/stackforge/murano-dashboard
-Vcs-Git: git://anonscm.debian.org/openstack/murano-dashboard.git
-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/murano-dashboard.git;a=summary
+Vcs-Git: https://anonscm.debian.org/git/openstack/murano-dashboard.git
+Vcs-Browser: https://anonscm.debian.org/cgit/openstack/murano-dashboard.git/
 
 Package: python-murano-dashboard
 Architecture: all
