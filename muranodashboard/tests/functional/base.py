@@ -17,6 +17,7 @@ import sys
 import testtools
 import time
 import urlparse
+import uuid
 
 from glanceclient import client as gclient
 from keystoneclient.v2_0 import client as ksclient
@@ -74,12 +75,25 @@ class UITestCase(BaseDeps):
         self.driver.implicitly_wait(30)
         self.addOnException(self.take_screenshot)
         self.log_in()
+        self.projects_to_delete = []
+        self.switch_to_project(cfg.common.tenant)
 
     def tearDown(self):
         super(UITestCase, self).tearDown()
 
+        self.switch_to_project(cfg.common.tenant)
+
+        for project_id in self.projects_to_delete:
+            self.keystone_client.tenants.delete(project_id)
+
         for env in self.murano_client.environments.list():
             self.remove_environment(env.id)
+
+    def gen_random_resource_name(self, prefix=None, reduce_by=None):
+        random_name = str(uuid.uuid4()).replace('-', '')[::reduce_by]
+        if prefix:
+            random_name = prefix + '_' + random_name
+        return random_name
 
     def remove_environment(self, environment_id, timeout=180):
         self.murano_client.environments.delete(environment_id)
@@ -95,6 +109,49 @@ class UITestCase(BaseDeps):
         raise Exception(
             'Environment {0} was not deleted in {1} seconds'.format(
                 environment_id, timeout))
+
+    def create_user(self, name, password=None, email=None, tenant_id=None):
+        if tenant_id is None:
+            tenant_id = self.keystone_client.tenant_id
+        self.keystone_client.users.create(name, password=password, email=email,
+                                          tenant_id=tenant_id, enabled=True)
+
+    def delete_user(self, name):
+        self.keystone_client.users.find(name=name).delete()
+
+    def get_tenantid_by_name(self, name):
+        """Returns TenantID of the project by project's name"""
+        tenant_id = [tenant.id for tenant
+                     in self.keystone_client.tenants.list()
+                     if tenant.name == name]
+        return tenant_id[-1]
+
+    def create_project(self, name):
+        project = self.keystone_client.tenants.create(
+            tenant_name=name, description="For Test Purposes", enabled=True)
+        self.projects_to_delete.append(project.id)
+        return project.id
+
+    def add_user_to_project(self, project_id, user_name, user_role=None):
+        if user_role is None:
+            roles = self.keystone_client.roles.list()
+            user_role = [role for role in roles if role.name == 'Member'][0]
+        tenant = self.keystone_client.tenants.get(project_id)
+        tenant.add_user(user_name, user_role)
+
+    def switch_to_project(self, name):
+        projects_xpath = ("//ul[contains(@class, navbar-nav)]"
+                          "//li[contains(@class, dropdown)]")
+        name_xpath = ("//a//span[contains(@class, dropdown-title)"
+                      "and normalize-space(text())='{0}']".format(name))
+        btn_xpath = "//a[contains(@class, dropdown-toggle) and @href='#']"
+        projects_list = self.driver.find_element_by_xpath(projects_xpath)
+        if projects_list.text != name:
+            if 'open' not in projects_list.get_attribute('class'):
+                projects_list.find_element_by_xpath(btn_xpath).click()
+            projects_list.find_element_by_xpath(name_xpath).click()
+            self.wait_for_alert_message()
+        # else the project is already set
 
     def take_screenshot(self, exception):
         """Taking screenshot on error
@@ -112,13 +169,22 @@ class UITestCase(BaseDeps):
         filename = os.path.join(screenshot_dir, name + '.png')
         self.driver.get_screenshot_as_file(filename)
 
-    def log_in(self):
-        self.fill_field(by.By.ID, 'id_username', cfg.common.user)
-        self.fill_field(by.By.ID, 'id_password', cfg.common.password)
+    def log_in(self, username=None, password=None):
+        username = username or cfg.common.user
+        password = password or cfg.common.password
+        self.fill_field(by.By.ID, 'id_username', username)
+        self.fill_field(by.By.ID, 'id_password', password)
         self.driver.find_element_by_xpath("//button[@type='submit']").click()
         murano = self.driver.find_element_by_xpath(consts.Murano)
         if 'collapsed' in murano.get_attribute('class'):
             murano.click()
+
+    def log_out(self):
+        user_menu = self.driver.find_element(
+            by.By.XPATH, "//ul[contains(@class, 'navbar-right')]")
+        user_menu.find_element(
+            by.By.XPATH, ".//span[@class='user-name']").click()
+        user_menu.find_element(by.By.LINK_TEXT, 'Sign Out').click()
 
     def fill_field(self, by_find, field, value):
         self.driver.find_element(by=by_find, value=field).clear()
@@ -127,7 +193,7 @@ class UITestCase(BaseDeps):
     def get_element_id(self, el_name):
         el = ui.WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located(
-                (by.By.XPATH, consts.AppPackageDefinitions.format(el_name))))
+                (by.By.XPATH, consts.AppPackages.format(el_name))))
         path = el.get_attribute("id")
         return path.split('__')[-1]
 
@@ -177,9 +243,19 @@ class UITestCase(BaseDeps):
             self.driver.find_element(method, value)
         except (exc.NoSuchElementException, exc.ElementNotVisibleException):
             present = False
-        self.assertFalse(present, "Element {0} is preset on the page"
+        self.assertFalse(present, u"Element {0} is preset on the page"
                                   " while it should't".format(value))
         self.driver.implicitly_wait(30)
+
+    def check_alert_message(self, message, sec=10):
+        locator = (by.By.CSS_SELECTOR, 'div.alert-dismissable')
+        try:
+            ui.WebDriverWait(self.driver, sec).until(
+                EC.presence_of_element_located(locator))
+        except exc.TimeoutException:
+            self.fail("Alert is not preset on the page")
+
+        self.assertIn(message, self.driver.find_element(*locator).text)
 
     def create_environment(self, env_name, by_id=False):
         if by_id:
@@ -234,6 +310,13 @@ class UITestCase(BaseDeps):
         logger.debug("Waiting for a success message")
         ui.WebDriverWait(self.driver, 2).until(
             EC.presence_of_element_located(locator))
+
+    def wait_for_error_message(self, sec=20):
+        locator = (by.By.CSS_SELECTOR, 'div.alert-danger > p')
+        logger.debug("Waiting for an error message")
+        ui.WebDriverWait(self.driver, sec, 1).until(
+            EC.presence_of_element_located(locator))
+        return self.driver.find_element(*locator).text
 
     def wait_element_is_clickable(self, method, element):
         return ui.WebDriverWait(self.driver, 10).until(

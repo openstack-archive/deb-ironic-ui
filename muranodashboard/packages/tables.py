@@ -213,12 +213,13 @@ class ModifyPackage(tables.LinkAction):
 
 
 class PackageDefinitionsTable(tables.DataTable):
-    name = tables.Column('name', verbose_name=_('Package Name'))
+    name = tables.Column('name',
+                         link="horizon:murano:packages:detail",
+                         verbose_name=_('Package Name'))
     tenant_name = tables.Column('tenant_name', verbose_name=_('Tenant Name'))
     enabled = tables.Column('enabled', verbose_name=_('Active'))
     is_public = tables.Column('is_public', verbose_name=_('Public'))
     type = tables.Column('type', verbose_name=_('Type'))
-    author = tables.Column('author', verbose_name=_('Author'))
     version = tables.Column(lambda obj: getattr(obj, 'version', None),
                             verbose_name=_('Version'))
     created_time = tables.Column('created',
@@ -236,13 +237,13 @@ class PackageDefinitionsTable(tables.DataTable):
     class Meta(object):
         name = 'packages'
         prev_pagination_param = 'marker'
-        verbose_name = _('Package Definitions')
+        verbose_name = _('Packages')
         template = 'common/_data_table.html'
+        table_actions_menu = (ToggleEnabled,
+                              TogglePublicEnabled)
         table_actions = (PackagesFilterAction,
                          ImportPackage,
                          ImportBundle,
-                         ToggleEnabled,
-                         TogglePublicEnabled,
                          DeletePackage)
 
         row_actions = (ModifyPackage,

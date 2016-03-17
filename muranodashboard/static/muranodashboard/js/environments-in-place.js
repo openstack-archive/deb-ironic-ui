@@ -14,6 +14,7 @@
 */
 
 $(function() {
+  "use strict";
   $('table#environments .add_env a').on('click', createEnv);
   $('table#environments .table_actions a.add_env').on('click', createEnv);
   function createEnv(ev) {
@@ -69,7 +70,7 @@ $(function() {
         // putting name group back to detached form to serialize it
         $name.appendTo($form);
         $.ajax({
-          method: 'POST',
+          type: 'POST',
           url: CREATE_URL,
           async: false,
           data: $form.serialize(),

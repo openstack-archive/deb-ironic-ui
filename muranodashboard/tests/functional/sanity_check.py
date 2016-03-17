@@ -17,6 +17,8 @@ import SimpleHTTPServer
 import SocketServer
 import tempfile
 import time
+import uuid
+import zipfile
 
 from selenium.webdriver.common import by
 from selenium.webdriver.support import ui
@@ -44,8 +46,8 @@ class TestSuiteSmoke(base.UITestCase):
 
     def test_smoke_package_definitions_panel(self):
         self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
-        self.check_panel_is_present('Package Definitions')
+        self.go_to_submenu('Packages')
+        self.check_panel_is_present('Packages')
 
 
 class TestSuiteEnvironment(base.ApplicationTestCase):
@@ -98,6 +100,45 @@ class TestSuiteEnvironment(base.ApplicationTestCase):
         self.check_element_on_page(
             by.By.XPATH,
             "//div[@id='environment_switcher']/a[contains(text(), 'TestEnv')]")
+
+    def test_create_and_delete_environment_with_unicode_name(self):
+        """Test check ability to create and delete environment with unicode name
+
+        Scenario:
+            1. Create environment with unicode name
+            2. Navigate to this environment
+            3. Go back to environment list and delete created environment
+        """
+        unicode_name = u'$yaql \u2665 unicode'
+        self.go_to_submenu('Environments')
+        self.create_environment(unicode_name)
+        self.go_to_submenu('Environments')
+        self.delete_environment(unicode_name)
+        self.check_element_not_on_page(by.By.LINK_TEXT, unicode_name)
+
+    def test_check_env_name_validation(self):
+        """Test checks validation of field that usually define environment name
+
+        Scenario:
+            1. Navigate to Application Catalog > Environmentss
+            2. Press 'Create environment'
+            3. Check a set of names, if current name isn't valid
+            appropriate error message should appears
+        """
+        self.go_to_submenu('Environments')
+        self.driver.find_element_by_css_selector(c.CreateEnvironment).click()
+
+        self.driver.find_element_by_id(c.ConfirmCreateEnvironment).click()
+        error_message = 'This field is required.'
+        self.driver.find_element_by_xpath(
+            c.ErrorMessage.format(error_message))
+
+        self.fill_field(by.By.ID, 'id_name', '  ')
+        self.driver.find_element_by_id(c.ConfirmCreateEnvironment).click()
+        error_message = ('Environment name must contain at least one '
+                         'non-white space symbol.')
+        self.driver.find_element_by_xpath(
+            c.ErrorMessage.format(error_message))
 
 
 class TestSuiteImage(base.ImageTestCase):
@@ -634,18 +675,159 @@ class TestSuiteApplications(base.ApplicationTestCase):
         self.driver.find_element_by_xpath(c.InputSubmit).click()
         self.check_element_on_page(by.By.LINK_TEXT, 'TestHotApp')
 
+    def test_deploy_mockapp_remove_it_and_deploy_another_mockapp(self):
+        """Checks that app is not available after remove and new app deployment
+
+        Scenario:
+            1. Navigate to Environments
+            2. Create new environment
+            3. Navigate to Applications and click MockApp 'Add to Env'
+            4. Fill the form use environment from step 2 and click submit
+            5. Click deploy environment
+            6. Wait 'Ready' status
+            7. Click Delete Application in row actions.
+            8. Navigate to Applications and click MockApp 'Add to Env'
+            9. Fill the form use environment from step 2 and new app name
+               and click submit
+            10. Click deploy environment
+            11. Check that the first application created in step 5
+                is not in the list
+            12. Click Delete Application in row actions.
+        """
+        # uuid.uuid4() generates random uuid
+        env_name = str(uuid.uuid4())
+        # range specifies total amount of applications used in the test
+        app_names = []
+        for x in range(4):
+            # In case of application some short name is needed to fit on page
+            app_names.append(str(uuid.uuid4())[::4])
+
+        self.go_to_submenu('Environments')
+        self.create_environment(env_name)
+        self.go_to_submenu('Environments')
+        self.check_element_on_page(by.By.LINK_TEXT, env_name)
+        env_id = self.get_element_id(env_name)
+
+        for idx, app_name in enumerate(app_names):
+            # Add application to the environment
+            self.go_to_submenu('Applications')
+            self.select_and_click_action_for_app(
+                'add', '{0}/{1}'.format(self.mockapp_id, env_id))
+            self.fill_field(by.By.NAME,
+                            '0-name'.format(self.mockapp_id), app_name)
+            self.driver.find_element_by_xpath(c.ButtonSubmit).click()
+            self.driver.find_element_by_xpath(c.InputSubmit).click()
+            self.select_from_list('osImage', self.image.id)
+            self.driver.find_element_by_xpath(c.InputSubmit).click()
+            self.driver.find_element_by_xpath(c.InputSubmit).click()
+            self.wait_element_is_clickable(by.By.ID, c.AddComponent)
+            self.check_element_on_page(by.By.LINK_TEXT, app_name)
+
+            # Deploy the environment with all current applications
+            self.driver.find_element_by_id(c.DeployEnvironment).click()
+            # Wait until the end of deploy
+            self.check_element_on_page(by.By.XPATH,
+                                       c.Status.format('Ready'),
+                                       sec=90)
+            # Starting form the second application will check
+            # that previous application is not in the list on the page
+            if idx:
+                self.check_element_not_on_page(by.By.LINK_TEXT,
+                                               app_names[idx - 1])
+            self.delete_component(app_name)
+
+        # To ensure that the very last application is deleted as well
+        for app_name in app_names[-1::]:
+            self.check_element_not_on_page(by.By.LINK_TEXT, app_name)
+
+    def test_deploy_several_mock_apps_in_a_row(self):
+        """Checks that app works after another app is deployed
+
+        Scenario:
+            1. Navigate to Environments
+            2. Create new environment
+            3. Navigate to Applications and click MockApp 'Add to Env'
+            4. Fill the form and use environment from step 2 and click submit
+            5. Click deploy environment
+            6. Wait 'Ready' status
+            7. Click testAction in row actions.
+            8. Wait 'Completed' status
+            9. Repeat steps 3-6 to add one more application.
+            10 Execute steps 7-8 for each application in the environment
+        """
+        # uuid.uuid4() generates random uuid
+        env_name = str(uuid.uuid4())
+        # range specifies total amount of applications used in the test
+        app_names = []
+        for x in range(4):
+            # In case of application some short name is needed to fit on page
+            app_names.append(str(uuid.uuid4())[::4])
+
+        self.go_to_submenu('Environments')
+        self.create_environment(env_name)
+        self.go_to_submenu('Environments')
+        self.check_element_on_page(by.By.LINK_TEXT, env_name)
+        env_id = self.get_element_id(env_name)
+
+        for idx, app_name in enumerate(app_names, 1):
+            # Add application to the environment
+            self.go_to_submenu('Applications')
+            self.select_and_click_action_for_app(
+                'add', '{0}/{1}'.format(self.mockapp_id, env_id))
+            self.fill_field(by.By.NAME,
+                            '0-name'.format(self.mockapp_id), app_name)
+            self.driver.find_element_by_xpath(c.ButtonSubmit).click()
+            self.driver.find_element_by_xpath(c.InputSubmit).click()
+            self.select_from_list('osImage', self.image.id)
+            self.driver.find_element_by_xpath(c.InputSubmit).click()
+            self.driver.find_element_by_xpath(c.InputSubmit).click()
+            self.wait_element_is_clickable(by.By.ID, c.AddComponent)
+            self.check_element_on_page(by.By.LINK_TEXT, app_name)
+
+            # Deploy the environment with all current applications
+            self.driver.find_element_by_id(c.DeployEnvironment).click()
+            # Wait until the end of deploy
+            self.wait_element_is_clickable(by.By.ID, c.AddComponent)
+
+            # For each current application in the deployed environment
+            for app_name in app_names[:idx]:
+                # Check that application with exact name is in the list
+                # and has status Ready
+                row_id = self.get_element_id(app_name)
+                row_xpath = c.Row.format(row_id)
+                status_xpath = '{0}{1}'.format(row_xpath,
+                                               c.Status.format('Ready'))
+                self.check_element_on_page(by.By.XPATH, status_xpath, sec=90)
+
+                # Click on the testAction button for the application
+                buttons_xpath = c.More.format('services', row_id)
+                el = self.wait_element_is_clickable(by.By.XPATH, buttons_xpath)
+                el.click()
+                action_xpath = '{0}{1}'.format(row_xpath, c.Action)
+                self.driver.find_element_by_xpath(action_xpath).click()
+
+                # And check that status of the application is 'Completed'
+                status_xpath = '{0}{1}'.format(row_xpath,
+                                               c.Status.format('Completed'))
+                self.check_element_on_page(by.By.XPATH, status_xpath, sec=90)
+
+        # Delete applications one by one
+        for app_name in app_names:
+            self.delete_component(app_name)
+            self.check_element_not_on_page(by.By.LINK_TEXT, app_name)
+
 
 class TestSuitePackages(base.PackageTestCase):
     def test_modify_package_name(self):
         """Test check ability to change name of the package
 
         Scenario:
-            1. Navigate to 'Package Definitions' page
+            1. Navigate to 'Packages' page
             2. Select package and click on 'Modify Package'
             3. Rename package
         """
         self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
+        self.go_to_submenu('Packages')
         self.select_action_for_package(self.postgre_id,
                                        'modify_package')
         self.fill_field(by.By.ID, 'id_name', 'PostgreSQL-modified')
@@ -653,7 +835,7 @@ class TestSuitePackages(base.PackageTestCase):
         self.wait_for_alert_message()
 
         self.check_element_on_page(by.By.XPATH,
-                                   c.AppPackageDefinitions.format(
+                                   c.AppPackages.format(
                                        'PostgreSQL-modified'))
 
         self.select_action_for_package(self.postgre_id,
@@ -662,20 +844,20 @@ class TestSuitePackages(base.PackageTestCase):
         self.driver.find_element_by_xpath(c.InputSubmit).click()
 
         self.check_element_on_page(by.By.XPATH,
-                                   c.AppPackageDefinitions.format(
+                                   c.AppPackages.format(
                                        'PostgreSQL'))
 
     def test_modify_package_add_tag(self):
         """Test that new tag is shown in description
 
         Scenario:
-            1. Navigate to 'Package Definitions' page
+            1. Navigate to 'Packages' page
             2. Click on "Modify Package" and add new tag
             3. Got to the Application Catalog page
             4. Check, that new tag is browsed in application description
         """
         self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
+        self.go_to_submenu('Packages')
         self.select_action_for_package(self.postgre_id,
                                        'modify_package')
 
@@ -693,11 +875,11 @@ class TestSuitePackages(base.PackageTestCase):
         """Test check ability to download package from repository
 
         Scenario:
-            1. Navigate to 'Package Definitions' page
+            1. Navigate to 'Packages' page
             2. Select PostgreSQL package and click on "More>Download Package"
         """
         self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
+        self.go_to_submenu('Packages')
 
         self.select_action_for_package(self.postgre_id, 'more')
         self.select_action_for_package(self.postgre_id, 'download_package')
@@ -706,60 +888,119 @@ class TestSuitePackages(base.PackageTestCase):
         """Test check ability to make package active or inactive
 
         Scenario:
-            1. Navigate to 'Package Definitions' page
-            2. Select some package and make it inactive ("More>Toggle Active")
+            1. Navigate to 'Packages' page
+            2. Select some package and make it inactive "More>Toggle Active"
             3. Check that package is inactive
-            4. Select some package and make it active ("More>Toggle Active ")
-            5. Check that package is active
+            4. Switch to 'Applications' page
+            5. Check that application is not available on the page
+            6. Navigate to 'Packages' page
+            7. Select the same package and make it active "More>Toggle Active"
+            8. Check that package is active
+            9. Switch to 'Applications' page
+            10. Check that application now is available on the page
         """
         self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
+        self.go_to_submenu('Packages')
 
         self.select_action_for_package(self.postgre_id, 'more')
         self.select_action_for_package(self.postgre_id, 'toggle_enabled')
 
+        self.wait_for_alert_message()
         self.check_package_parameter_by_id(self.postgre_id, 'Active', 'False')
 
+        self.navigate_to('Application_Catalog')
+        self.go_to_submenu('Applications')
+        # 'Quick Deploy' button contains id of the application.
+        # So it is possible to definitely determinate is it in catalog or not.
+        btn_xpath = ("//*[@href='{0}/murano/catalog/quick-add/{1}']"
+                     "".format(self.url_prefix, self.postgre_id))
+        self.check_element_not_on_page(by.By.XPATH, btn_xpath)
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+
         self.select_action_for_package(self.postgre_id, 'more')
         self.select_action_for_package(self.postgre_id, 'toggle_enabled')
 
+        self.wait_for_alert_message()
+
         self.check_package_parameter_by_id(self.postgre_id, 'Active', 'True')
+
+        self.navigate_to('Application_Catalog')
+        self.go_to_submenu('Applications')
+        self.check_element_on_page(by.By.XPATH, btn_xpath)
 
     def test_check_toggle_public_package(self):
         """Test check ability to make package active or inactive
 
         Scenario:
-            1. Navigate to 'Package Definitions' page
-            2. Select some package and make it inactive ("More>Toggle Public")
-            3. Check that package is unpublic
-            4. Select some package and make it active ("More>Toggle Public ")
-            5. Check that package is public
+            1. Create new project but keep default project active
+            2. Navigate to 'Packages' page
+            3. Select some package and make it active "More>Toggle Public"
+            4. Check that package is public
+            5. Switch to the new project and check that the application is
+               available in the catalog
+            6. Switch back to default project
+            7. Select the same package and inactivate it "More>Toggle Public"
+            8. Check that package is unpublic
+            9. Switch to the new project and check that the application
+               is not available in the catalog
         """
+        default_project = self.keystone_client.project_name
+        new_project = str(uuid.uuid4())[::4]
+        project_id = self.create_project(new_project)
+        self.add_user_to_project(project_id, self.keystone_client.user_id)
+        # Generally the new project will appear in the dropdown menu only after
+        # page refresh. But in this case refresh is not neccesary.
+
         self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
+        self.go_to_submenu('Packages')
 
         self.select_action_for_package(self.postgre_id, 'more')
         self.select_action_for_package(self.postgre_id,
                                        'toggle_public_enabled')
 
+        self.wait_for_alert_message()
         self.check_package_parameter_by_id(self.postgre_id, 'Public', 'True')
 
+        # Check that application is available in other project.
+        self.switch_to_project(new_project)
+        self.navigate_to('Application_Catalog')
+        self.go_to_submenu('Applications')
+        # 'Quick Deploy' button contains id of the application.
+        # So it is possible to definitely determinate is it in catalog or not.
+        btn_xpath = ("//*[@href='{0}/murano/catalog/quick-add/{1}']"
+                     "".format(self.url_prefix, self.postgre_id))
+
+        self.check_element_on_page(by.By.XPATH, btn_xpath)
+
+        self.switch_to_project(default_project)
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+
         self.select_action_for_package(self.postgre_id, 'more')
         self.select_action_for_package(self.postgre_id,
                                        'toggle_public_enabled')
 
+        self.wait_for_alert_message()
         self.check_package_parameter_by_id(self.postgre_id, 'Public', 'False')
+
+        # Check that application now is not available in other porject.
+        self.switch_to_project(new_project)
+        self.navigate_to('Application_Catalog')
+        self.go_to_submenu('Applications')
+        self.check_element_not_on_page(by.By.XPATH, btn_xpath)
 
     def test_modify_description(self):
         """Test check ability to change description of the package
 
         Scenario:
-            1. Navigate to 'Package Definitions' page
+            1. Navigate to 'Packages' page
             2. Select package and click on 'Modify Package'
             3. Change description
         """
         self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
+        self.go_to_submenu('Packages')
         self.select_action_for_package(self.mockapp_id,
                                        'modify_package')
 
@@ -772,12 +1013,12 @@ class TestSuitePackages(base.PackageTestCase):
                              c.MockAppDescr).text)
 
     def test_upload_package(self):
-        """Test package uploading via Package Definitions view.
+        """Test package uploading via Packages view.
 
            Skips category selection step.
         """
         self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
+        self.go_to_submenu('Packages')
 
         self.driver.find_element_by_id(c.UploadPackage).click()
         el = self.driver.find_element_by_css_selector(
@@ -805,7 +1046,7 @@ class TestSuitePackages(base.PackageTestCase):
         """Test package modifying a package after uploading it."""
 
         self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
+        self.go_to_submenu('Packages')
 
         self.driver.find_element_by_id(c.UploadPackage).click()
         el = self.driver.find_element_by_css_selector(
@@ -828,10 +1069,34 @@ class TestSuitePackages(base.PackageTestCase):
 
         self.wait_for_alert_message()
         self.check_element_on_page(
-            by.By.XPATH, c.AppPackageDefinitions.format(pkg_name))
+            by.By.XPATH, c.AppPackages.format(pkg_name))
 
         self.check_package_parameter_by_name(pkg_name, 'Public', 'True')
         self.check_package_parameter_by_name(pkg_name, 'Active', 'False')
+
+    def test_upload_package_detail(self):
+        """Test check ability to view package details after uploading it."""
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-package']")
+        el.send_keys(self.archive)
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        # No application data modification is needed
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.wait_for_alert_message()
+
+        pkg_name = self.archive_name
+        self.driver.find_element_by_xpath(
+            "//a[contains(text(), '{0}')]".format(pkg_name)).click()
+        self.assertIn(pkg_name,
+                      self.driver.find_element(by.By.XPATH, c.AppDetail).text)
 
     def test_category_management(self):
         """Test application category adds and deletes successfully
@@ -854,6 +1119,77 @@ class TestSuitePackages(base.PackageTestCase):
         self.wait_for_alert_message()
         self.check_element_not_on_page(by.By.XPATH, delete_new_category_btn)
 
+    def test_sharing_app_without_permission(self):
+        """Tests sharing Murano App without permission
+
+        Scenario:
+            1) Login as admin;
+            2) Identity -> Users: Create User:
+                User Name: Test_service_user
+                Primary Project: service
+                Enabled: Yes
+            3) Login to Horizon as an 'Test_service_user';
+            4) Murano -> Manage -> Packages: Import Package
+                Set public Off, Active On
+            5) Try to modify created package and set Public = On.
+                Error: You are not allowed to perform this operation
+            6) Delete new package
+        """
+        service_prj_name = 'service'
+        new_user = {'name': 'Test_service_user',
+                    'password': 'somepassword',
+                    'email': 'test_serv_user@email.com'}
+        try:
+            self.delete_user(new_user['name'])
+        except Exception:
+            pass
+        # Create new user in 'service' prj
+        service_prj_id = self.get_tenantid_by_name(service_prj_name)
+        self.create_user(tenant_id=service_prj_id, **new_user)
+
+        # login as 'Test_service_user'
+        self.log_out()
+        self.log_in(new_user['name'], new_user['password'])
+
+        # Import package
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-package']")
+        el.send_keys(self.archive)
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        # Public = OFF; Active = ON.
+        public_checkbox = self.driver.find_element_by_id('id_modify-is_public')
+        active_checkbox = self.driver.find_element_by_id('id_modify-enabled')
+        if public_checkbox.is_selected() is True:
+            public_checkbox.click()
+        elif active_checkbox.is_selected() is False:
+            active_checkbox.click()
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.wait_for_alert_message()
+        self.check_element_on_page(
+            by.By.XPATH, c.AppPackages.format(self.archive_name))
+
+        # Modify Package to set Public = ON
+        package = self.driver.find_element_by_xpath(
+            c.AppPackages.format(self.archive_name))
+        pkg_id = package.get_attribute("data-object-id")
+        self.select_action_for_package(pkg_id, 'modify_package')
+        self.driver.find_element_by_id('id_is_public').click()
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        # Expecting Error
+        self.wait_for_error_message()
+
+        # Clean up
+        self.select_action_for_package(pkg_id, 'more')
+        self.select_action_for_package(pkg_id, 'delete_package')
+        self.driver.find_element_by_xpath(c.ConfirmDeletion).click()
+        self.log_out()
+        self.log_in()
+        self.delete_user(new_user['name'])
+
 
 class TestSuiteRepository(base.PackageTestCase):
     _apps_to_delete = set()
@@ -871,6 +1207,25 @@ class TestSuiteRepository(base.PackageTestCase):
         )
         self._apps_to_delete.add(name)
         return app_name
+
+    def _compose_bundle(self, name, app_names):
+        bundles_dir = os.path.join(self.serve_dir, 'bundles/')
+        shutil.os.mkdir(bundles_dir)
+        utils.compose_bundle(os.path.join(bundles_dir, name + '.bundle'),
+                             app_names)
+
+    def _make_pkg_zip_regular_file(self, name):
+        file_name = os.path.join(self.serve_dir, 'apps', name + '.zip')
+        with open(file_name, 'w') as f:
+            f.write("I'm not an application. I'm not a zip file at all")
+
+    def _make_non_murano_zip_in_pkg(self, name):
+        file_name = os.path.join(self.serve_dir, 'apps', 'manifest.yaml')
+        with open(file_name, 'w') as f:
+            f.write("Description: I'm not a murano package at all")
+        zip_name = os.path.join(self.serve_dir, 'apps', name + '.zip')
+        with zipfile.ZipFile(zip_name, 'w') as archive:
+            archive.write(file_name)
 
     def setUp(self):
         super(TestSuiteRepository, self).setUp()
@@ -907,7 +1262,7 @@ class TestSuiteRepository(base.PackageTestCase):
         self._compose_app(pkg_name)
 
         self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
+        self.go_to_submenu('Packages')
         self.driver.find_element_by_id(c.UploadPackage).click()
         sel = self.driver.find_element_by_css_selector(
             "select[name='upload-import_type']")
@@ -925,7 +1280,7 @@ class TestSuiteRepository(base.PackageTestCase):
 
         self.wait_for_alert_message()
         self.check_element_on_page(
-            by.By.XPATH, c.AppPackageDefinitions.format(pkg_name))
+            by.By.XPATH, c.AppPackages.format(pkg_name))
 
     def test_import_package_from_repo(self):
         """Test package importing via fqn from repo with dependant apps."""
@@ -941,7 +1296,7 @@ class TestSuiteRepository(base.PackageTestCase):
         self._compose_app(pkg_name_grand_child)
 
         self.navigate_to('Manage')
-        self.go_to_submenu('Package Definitions')
+        self.go_to_submenu('Packages')
         self.driver.find_element_by_id(c.UploadPackage).click()
         sel = self.driver.find_element_by_css_selector(
             "select[name='upload-import_type']")
@@ -961,4 +1316,435 @@ class TestSuiteRepository(base.PackageTestCase):
         pkg_names = [pkg_name_parent, pkg_name_child, pkg_name_grand_child]
         for pkg_name in pkg_names:
             self.check_element_on_page(
-                by.By.XPATH, c.AppPackageDefinitions.format(pkg_name))
+                by.By.XPATH, c.AppPackages.format(pkg_name))
+
+    def test_import_bundle_by_url(self):
+        """Test bundle importing via url."""
+        pkg_name_one = "PackageOne"
+        pkg_name_two = "PackageTwo"
+        pkg_name_parent = "PackageParent"
+        pkg_name_child = "PackageChild"
+
+        self._compose_app(pkg_name_one)
+        self._compose_app(pkg_name_two)
+        self._compose_app(pkg_name_parent, require={pkg_name_child: ''})
+        self._compose_app(pkg_name_child)
+
+        bundle_name = 'PackageWithPackages'
+        self._compose_bundle(bundle_name, [pkg_name_parent,
+                                           pkg_name_one,
+                                           pkg_name_two])
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+        self.driver.find_element_by_id(c.ImportBundle).click()
+        sel = self.driver.find_element_by_css_selector(
+            "select[name='upload-import_type']")
+        sel = ui.Select(sel)
+        sel.select_by_value("by_url")
+
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-url']")
+        el.send_keys(
+            "http://127.0.0.1:8099/bundles/{0}.bundle".format(bundle_name))
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.wait_for_alert_message()
+
+        pkg_names = [pkg_name_parent, pkg_name_child,
+                     pkg_name_one, pkg_name_two]
+        for pkg_name in pkg_names:
+            self.check_element_on_page(
+                by.By.XPATH, c.AppPackages.format(pkg_name))
+
+    def test_import_bundle_from_repo(self):
+        """Test bundle importing via fqn from repo."""
+        pkg_name_parent = "PackageParent"
+        pkg_name_child = "PackageChild"
+        pkg_name_grand_child = "PackageGrandChild"
+        pkg_name_single = "PackageSingle"
+
+        self._compose_app(pkg_name_single)
+        self._compose_app(pkg_name_parent, require={pkg_name_child: ''})
+        self._compose_app(pkg_name_child,
+                          require={pkg_name_grand_child: '0.1'})
+        pkg_name_grand_child += '.0.1'
+        self._compose_app(pkg_name_grand_child)
+
+        bundle_name = 'PackageWithPackages'
+        self._compose_bundle(bundle_name, [pkg_name_parent, pkg_name_single])
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+        self.driver.find_element_by_id(c.ImportBundle).click()
+        sel = self.driver.find_element_by_css_selector(
+            "select[name='upload-import_type']")
+        sel = ui.Select(sel)
+        sel.select_by_value("by_name")
+
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-name']")
+        el.send_keys("{0}".format(bundle_name))
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.wait_for_alert_message()
+
+        pkg_names = [pkg_name_parent, pkg_name_child,
+                     pkg_name_grand_child, pkg_name_single]
+        for pkg_name in pkg_names:
+            self.check_element_on_page(
+                by.By.XPATH, c.AppPackages.format(pkg_name))
+
+    def test_import_package_by_invalid_url(self):
+        """Negative test when package is imported by invalid url."""
+        pkg_name = self.gen_random_resource_name('pkg')
+        self._compose_app(pkg_name)
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+
+        # Invalid folder
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        sel = self.driver.find_element_by_css_selector(
+            "select[name='upload-import_type']")
+        sel = ui.Select(sel)
+        sel.select_by_value("by_url")
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-url']")
+        el.send_keys("http://127.0.0.1:8099/None/{0}.zip".format(pkg_name))
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.wait_for_error_message()
+
+        # HTTP connect error
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        sel = self.driver.find_element_by_css_selector(
+            "select[name='upload-import_type']")
+        sel = ui.Select(sel)
+        sel.select_by_value("by_url")
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-url']")
+        el.send_keys("http://127.0.0.2:12345/apps/{0}.zip".format(pkg_name))
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.wait_for_error_message(sec=90)
+
+        # Invalid app name
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        sel = self.driver.find_element_by_css_selector(
+            "select[name='upload-import_type']")
+        sel = ui.Select(sel)
+        sel.select_by_value("by_url")
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-url']")
+        el.send_keys(
+            "http://127.0.0.1:8099/apps/invalid_{0}.zip".format(pkg_name))
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.wait_for_error_message()
+
+        self.check_element_not_on_page(
+            by.By.XPATH, c.AppPackages.format(pkg_name))
+
+    def test_import_package_by_invalid_name(self):
+        """Negative test when package is imported by invalid name from repo."""
+        pkg_name = self.gen_random_resource_name('pkg')
+        self._compose_app(pkg_name)
+        pkg_to_import = "invalid_" + pkg_name
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        sel = self.driver.find_element_by_css_selector(
+            "select[name='upload-import_type']")
+        sel = ui.Select(sel)
+        sel.select_by_value("by_name")
+
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-repo_name']")
+        el.send_keys("{0}".format(pkg_to_import))
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        self.wait_for_error_message()
+
+        self.check_element_not_on_page(
+            by.By.XPATH, c.AppPackages.format(pkg_to_import))
+
+    def test_import_non_zip_file(self):
+        """"Negative test import regualr file instead of zip package."""
+        # Create dummy package with zip file replaced by text one
+        pkg_name = self.gen_random_resource_name('pkg')
+        self._compose_app(pkg_name)
+        self._make_pkg_zip_regular_file(pkg_name)
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        sel = self.driver.find_element_by_css_selector(
+            "select[name='upload-import_type']")
+        sel = ui.Select(sel)
+        sel.select_by_value("by_name")
+
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-repo_name']")
+        el.send_keys("{0}".format(pkg_name))
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        err_msg = self.wait_for_error_message()
+        self.assertIn('File is not a zip file', err_msg)
+
+        self.check_element_not_on_page(
+            by.By.XPATH, c.AppPackages.format(pkg_name))
+
+    def test_import_invalid_zip_file(self):
+        """"Negative test import zip file which is not a murano package."""
+        # At first create dummy package with zip file replaced by text one
+        pkg_name = self.gen_random_resource_name('pkg')
+        self._compose_app(pkg_name)
+        self._make_non_murano_zip_in_pkg(pkg_name)
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        sel = self.driver.find_element_by_css_selector(
+            "select[name='upload-import_type']")
+        sel = ui.Select(sel)
+        sel.select_by_value("by_name")
+
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-repo_name']")
+        el.send_keys("{0}".format(pkg_name))
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        err_msg = self.wait_for_error_message()
+        self.assertIn("There is no item named 'manifest.yaml'", err_msg)
+
+        self.check_element_not_on_page(
+            by.By.XPATH, c.AppPackages.format(pkg_name))
+
+
+class TestSuitePackageCategory(base.PackageTestCase):
+    def _import_package_with_category(self, package_archive, category):
+        self.go_to_submenu('Packages')
+        self.driver.find_element_by_id(c.UploadPackage).click()
+
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-package']")
+        el.send_keys(package_archive)
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+        # choose the required category
+        self.driver.find_element_by_xpath(
+            c.PackageCategory.format(category)).click()
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.wait_for_alert_message()
+
+        # To wait till the focus is swithced
+        # from modal dialog back to the window.
+        self.wait_for_sidebar_is_loaded()
+
+    def setUp(self):
+        super(TestSuitePackageCategory, self).setUp()
+
+        # add new category
+        self.category = str(uuid.uuid4())
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Categories')
+        self.driver.find_element_by_id(c.AddCategory).click()
+        self.fill_field(
+            by.By.XPATH, "//input[@id='id_name']", self.category)
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.wait_for_alert_message()
+        self.check_element_on_page(
+            by.By.XPATH, c.CategoryPackageCount.format(self.category, 0))
+
+        # save category id
+        self.category_id = self.get_element_id(self.category)
+
+    def tearDown(self):
+        super(TestSuitePackageCategory, self).tearDown()
+
+        # delete created category
+        self.murano_client.categories.delete(self.category_id)
+
+    def test_add_delete_category_for_package(self):
+        """Test package importing with new category and changing the category.
+
+        Scenario:
+            1. Log into OpenStack Horizon dashboard as admin user
+            2. Navigate to 'Categories' page
+            3. Click on 'Add Category' button
+            4. Create new category and check it's browsed in the table
+            5. Navigate to 'Packages' page
+            6. Click on 'Import Package' button
+            7. Import package and select created 'test' category for it
+            8. Navigate to "Categories" page
+            9. Check that package count = 1 for created category
+            10. Navigate to 'Packages' page
+            11. Modify imported earlier package, by changing its category
+            12. Navigate to 'Categories' page
+            13. Check that package count = 0 for created category
+        """
+        # add new package to the created category
+        self._import_package_with_category(self.archive, self.category)
+
+        # Check that package count = 1 for created category
+        self.go_to_submenu('Categories')
+        self.check_element_on_page(
+            by.By.XPATH, c.CategoryPackageCount.format(self.category, 1))
+
+        # Modify imported earlier package by changing its category
+        self.go_to_submenu('Packages')
+
+        package = self.driver.find_element_by_xpath(
+            c.AppPackages.format(self.archive_name))
+        pkg_id = package.get_attribute("data-object-id")
+
+        self.select_action_for_package(pkg_id, 'modify_package')
+        sel = self.driver.find_element_by_xpath(
+            "//select[contains(@name, 'categories')]")
+        sel = ui.Select(sel)
+        sel.deselect_all()
+        sel.select_by_value('Web')
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.wait_for_alert_message()
+
+        # Check that package count = 0 for created category
+        self.go_to_submenu('Categories')
+        self.check_element_on_page(
+            by.By.XPATH, c.CategoryPackageCount.format(self.category, 0))
+
+    def test_filter_by_new_category(self):
+        """Filter by new category from Applications page
+
+        Scenario:
+            1. Log into OpenStack Horizon dashboard as admin user
+            2. Navigate to 'Categories' page
+            3. Click on 'Add Category' button
+            4. Create new category and check it's browsed in the table
+            5. Navigate to 'Packages' page
+            6. Click on 'Import Package' button
+            7. Import package and select created 'test' category for it
+            8. Navigate to "Applications" page
+            9. Select new category in "App category" dropdown list
+        """
+        self._import_package_with_category(self.archive, self.category)
+        self.navigate_to('Application_Catalog')
+        self.go_to_submenu('Applications')
+        self.driver.find_element_by_xpath(
+            c.CategorySelector.format('All')).click()
+        self.driver.find_element_by_partial_link_text(self.category).click()
+
+        self.check_element_on_page(
+            by.By.XPATH, c.App.format(self.archive_name))
+
+    def test_filter_by_category_from_env_components(self):
+        """Filter by new category from Environment Components page
+
+        Scenario:
+            1. Log into OpenStack Horizon dashboard as admin user
+            2. Navigate to 'Categories' page
+            3. Click on 'Add Category' button
+            4. Create new category and check it's browsed in the table
+            5. Navigate to 'Packages' page
+            6. Click on 'Import Package' button
+            7. Import package and select created 'test' category for it
+            8. Navigate to 'Environments' page
+            9. Create environment
+            10. Select new category in 'App category' dropdown list
+            11. Check that imported package is displayed
+            12. Select 'Web' category in 'App category' dropdown list
+            13. Check that imported package is not displayed
+        """
+        self._import_package_with_category(self.archive, self.category)
+
+        # create environment
+        env_name = str(uuid.uuid4())
+
+        self.navigate_to('Application_Catalog')
+        self.go_to_submenu('Environments')
+        self.create_environment(env_name)
+        self.go_to_submenu('Environments')
+        self.check_element_on_page(by.By.LINK_TEXT, env_name)
+
+        # filter by new category
+        self.select_action_for_environment(env_name, 'show')
+        self.driver.find_element_by_xpath(c.EnvAppsCategorySelector).click()
+        self.driver.find_element_by_partial_link_text(self.category).click()
+
+        # check that imported package is displayed
+        self.check_element_on_page(
+            by.By.XPATH, c.EnvAppsCategory.format(self.archive_name))
+
+        # filter by 'Web' category
+        self.driver.find_element_by_xpath(c.EnvAppsCategorySelector).click()
+        self.driver.find_element_by_partial_link_text('Web').click()
+
+        # check that imported package is not displayed
+        self.check_element_not_on_page(
+            by.By.XPATH, c.EnvAppsCategory.format(self.archive_name))
+
+    def test_add_existing_category(self):
+        """Add category with name of already existing category
+
+        Scenario:
+            1. Log into OpenStack Horizon dashboard as admin user
+            2. Navigate to 'Categories' page
+            3. Add new category
+            4. Check that new category has appeared in category list
+            5. Try to add category with the same name
+            6. Check that appropriate and user friendly error message has
+                appeared.
+        """
+        self.navigate_to('Manage')
+        self.go_to_submenu('Categories')
+
+        self.driver.find_element_by_id(c.AddCategory).click()
+        self.fill_field(
+            by.By.XPATH, "//input[@id='id_name']", self.category)
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        error_message = ("Error: Requested operation conflicts "
+                         "with an existing object.")
+        self.check_alert_message(error_message)
+
+    def test_delete_category_with_package(self):
+        """Deletion of category with package in it
+
+        Scenario:
+            1. Log into OpenStack Horizon dashboard as admin user
+            2. Navigate to 'Categories' page
+            3. Add new category
+            4. Navigate to 'Packages' page
+            5. Import package and select created category for it
+            6. Navigate to "Categories" page
+            7. Check that package count = 1 for created category
+            8. Check that there is no 'Delete Category' button for the category
+        """
+        # add new package to the created category
+        self._import_package_with_category(self.archive, self.category)
+
+        # Check that package count = 1 for created category
+        self.go_to_submenu('Categories')
+        self.check_element_on_page(
+            by.By.XPATH, c.CategoryPackageCount.format(self.category, 1))
+
+        self.check_element_not_on_page(
+            by.By.XPATH, c.DeleteCategory.format(self.category))
+
+    def test_list_of_existing_categories(self):
+        """Checks that list of categories avaliable
+
+        Scenario:
+            1. Navigate to 'Categories' page
+            2. Check that list of categories available and basic categories
+                ("Web", "Databases") are present in the list
+        """
+        self.go_to_submenu("Categories")
+        categories_table_locator = (by.By.CSS_SELECTOR, "table#categories")
+        self.check_element_on_page(*categories_table_locator)
+        for category in ("Databases", "Web"):
+            category_locator = (by.By.XPATH,
+                                "//tr[@data-display='{}']".format(category))
+            self.check_element_on_page(*category_locator)
