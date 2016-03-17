@@ -9,6 +9,7 @@ murano-dashboard (1:2.0.0~b3-1) UNRELEASED; urgency=medium
 
   [ Thomas Goirand ]
   * New upstream release.
+  * Fixed (build-)depends for this release.
 
  -- Thomas Goirand <zigo@debian.org>  Thu, 17 Mar 2016 22:59:05 +0100
 
