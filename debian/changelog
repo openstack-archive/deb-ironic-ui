@@ -1,4 +1,4 @@
-murano-dashboard (1:2.0.0~b3-1) UNRELEASED; urgency=medium
+murano-dashboard (1:2.0.0~b3-1) experimental; urgency=medium
 
   [ Ivan Udovichenko ]
   * d/python-murano-dashboard.postinst: Add METADATA_CACHE_DIR variable
@@ -10,16 +10,9 @@ murano-dashboard (1:2.0.0~b3-1) UNRELEASED; urgency=medium
   [ Thomas Goirand ]
   * New upstream release.
   * Fixed (build-)depends for this release.
-
- -- Thomas Goirand <zigo@debian.org>  Thu, 17 Mar 2016 22:59:05 +0100
-
-murano-dashboard (1:2.0.0~b2-1) experimental; urgency=medium
-
-  * New upstream release.
-  * Fixed (build-)depends for this release.
   * Fixed debian/copyright ordering, years and holders.
 
- -- Thomas Goirand <zigo@debian.org>  Fri, 11 Dec 2015 10:53:20 +0100
+ -- Thomas Goirand <zigo@debian.org>  Thu, 17 Mar 2016 22:59:05 +0100
 
 murano-dashboard (1:1.0.1-1) unstable; urgency=medium
 
