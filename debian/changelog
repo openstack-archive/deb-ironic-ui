@@ -11,6 +11,7 @@ murano-dashboard (1:2.0.0~b3-1) experimental; urgency=medium
   * New upstream release.
   * Fixed (build-)depends for this release.
   * Fixed debian/copyright ordering, years and holders.
+  * Standards-Version: 3.9.7 (no change).
 
  -- Thomas Goirand <zigo@debian.org>  Thu, 17 Mar 2016 22:59:05 +0100
 
