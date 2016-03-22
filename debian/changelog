@@ -1,6 +1,7 @@
 murano-dashboard (1:2.0.0~rc1-1) experimental; urgency=medium
 
   * New upstream release.
+  * Fixed (build-)depends for this release.
 
  -- Thomas Goirand <zigo@debian.org>  Tue, 22 Mar 2016 22:02:28 +0100
 
