@@ -175,7 +175,22 @@ class TogglePublicEnabled(tables.BatchAction):
 
 class DeletePackage(tables.DeleteAction):
     name = 'delete_package'
-    data_type_singular = _('Package')
+
+    @staticmethod
+    def action_present(count):
+        return ungettext_lazy(
+            u"Delete Package",
+            u"Delete Packages",
+            count
+        )
+
+    @staticmethod
+    def action_past(count):
+        return ungettext_lazy(
+            u"Deleted Package",
+            u"Deleted Packages",
+            count
+        )
 
     def delete(self, request, obj_id):
         try:
@@ -238,7 +253,6 @@ class PackageDefinitionsTable(tables.DataTable):
         name = 'packages'
         prev_pagination_param = 'marker'
         verbose_name = _('Packages')
-        template = 'common/_data_table.html'
         table_actions_menu = (ToggleEnabled,
                               TogglePublicEnabled)
         table_actions = (PackagesFilterAction,

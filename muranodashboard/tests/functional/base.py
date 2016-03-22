@@ -110,14 +110,16 @@ class UITestCase(BaseDeps):
             'Environment {0} was not deleted in {1} seconds'.format(
                 environment_id, timeout))
 
-    def create_user(self, name, password=None, email=None, tenant_id=None):
+    @classmethod
+    def create_user(cls, name, password=None, email=None, tenant_id=None):
         if tenant_id is None:
-            tenant_id = self.keystone_client.tenant_id
-        self.keystone_client.users.create(name, password=password, email=email,
-                                          tenant_id=tenant_id, enabled=True)
+            tenant_id = cls.keystone_client.tenant_id
+        cls.keystone_client.users.create(name, password=password, email=email,
+                                         tenant_id=tenant_id, enabled=True)
 
-    def delete_user(self, name):
-        self.keystone_client.users.find(name=name).delete()
+    @classmethod
+    def delete_user(cls, name):
+        cls.keystone_client.users.find(name=name).delete()
 
     def get_tenantid_by_name(self, name):
         """Returns TenantID of the project by project's name"""
@@ -275,7 +277,8 @@ class UITestCase(BaseDeps):
 
     def edit_environment(self, old_name, new_name):
         el_td = self.driver.find_element_by_css_selector(
-            'tr[data-display="{0}"] td:first-of-type'.format(old_name))
+            'tr[data-display="{0}"] '.format(old_name) +
+            'td[data-cell-name="name"]')
         el_pencil = el_td.find_element_by_css_selector(
             'button.ajax-inline-edit')
 
@@ -287,14 +290,15 @@ class UITestCase(BaseDeps):
         # fill in inline input
         el_inline_input = self.driver.find_element_by_css_selector(
             'tr[data-display="{0}"] '.format(old_name) +
-            'td:first-of-type .inline-edit-form input')
+            'td[data-cell-name="name"] .inline-edit-form input')
         el_inline_input.clear()
         el_inline_input.send_keys(new_name)
 
         # click submit
         el_submit = self.driver.find_element_by_css_selector(
             'tr[data-display="{0}"] '.format(old_name) +
-            'td:first-of-type .inline-edit-actions button[type="submit"]')
+            'td[data-cell-name="name"] .inline-edit-actions' +
+            ' button[type="submit"]')
         el_submit.click()
         # there is no alert message
 
@@ -308,7 +312,7 @@ class UITestCase(BaseDeps):
     def wait_for_alert_message(self):
         locator = (by.By.CSS_SELECTOR, 'div.alert-success')
         logger.debug("Waiting for a success message")
-        ui.WebDriverWait(self.driver, 2).until(
+        ui.WebDriverWait(self.driver, 5).until(
             EC.presence_of_element_located(locator))
 
     def wait_for_error_message(self, sec=20):

@@ -120,7 +120,7 @@ class TestSuiteEnvironment(base.ApplicationTestCase):
         """Test checks validation of field that usually define environment name
 
         Scenario:
-            1. Navigate to Application Catalog > Environmentss
+            1. Navigate to Application Catalog > Environments
             2. Press 'Create environment'
             3. Check a set of names, if current name isn't valid
             appropriate error message should appears
@@ -804,20 +804,89 @@ class TestSuiteApplications(base.ApplicationTestCase):
                 el = self.wait_element_is_clickable(by.By.XPATH, buttons_xpath)
                 el.click()
                 action_xpath = '{0}{1}'.format(row_xpath, c.Action)
-                self.driver.find_element_by_xpath(action_xpath).click()
+                menu_item = self.wait_element_is_clickable(by.By.XPATH,
+                                                           action_xpath)
+                menu_item.click()
 
                 # And check that status of the application is 'Completed'
                 status_xpath = '{0}{1}'.format(row_xpath,
                                                c.Status.format('Completed'))
                 self.check_element_on_page(by.By.XPATH, status_xpath, sec=90)
-
         # Delete applications one by one
         for app_name in app_names:
             self.delete_component(app_name)
             self.check_element_not_on_page(by.By.LINK_TEXT, app_name)
 
 
+class TestSuiteAppsPagination(base.UITestCase):
+    def setUp(self):
+        super(TestSuiteAppsPagination, self).setUp()
+        self.apps = []
+        # Create 30 additinal packages with applications
+        for i in range(100, 130):
+            app_name = self.gen_random_resource_name('app', 4)
+            tag = self.gen_random_resource_name('tag', 8)
+            metadata = {"categories": ["Web"], "tags": [tag]}
+            app_id = utils.upload_app_package(self.murano_client, app_name,
+                                              metadata)
+            self.apps.append(app_id)
+
+    def tearDown(self):
+        super(TestSuiteAppsPagination, self).tearDown()
+        for app_id in self.apps:
+            self.murano_client.packages.delete(app_id)
+
+    def test_apps_pagination(self):
+        """Test check pagination in case of many applications installed."""
+        self.navigate_to('Application_Catalog')
+        self.go_to_submenu('Applications')
+        packages_list = [elem.name for elem in
+                         self.murano_client.packages.list()]
+        # No list of apps available in the client only packages are.
+        # Need to remove 'Core library' from it since it is not visible in
+        # application's list.
+        packages_list.remove('Core library')
+
+        apps_per_page = 6
+        pages_itself = [packages_list[i:i + apps_per_page] for i in
+                        range(0, len(packages_list), apps_per_page)]
+        for i, names in enumerate(pages_itself, 1):
+            for name in names:
+                self.check_element_on_page(by.By.XPATH, c.App.format(name))
+            if i != len(pages_itself):
+                self.driver.find_element_by_link_text('Next Page').click()
+
+        # Wait till the Next button disapper
+        # Otherwise 'Prev' buttion from previous page might be used
+        self.check_element_not_on_page(by.By.LINK_TEXT, 'Next Page')
+
+        # Now go back to the first page
+        pages_itself.reverse()
+        for i, names in enumerate(pages_itself, 1):
+            for name in names:
+                self.check_element_on_page(by.By.XPATH, c.App.format(name))
+            if i != len(pages_itself):
+                self.driver.find_element_by_link_text('Previous Page').click()
+
+
 class TestSuitePackages(base.PackageTestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super(TestSuitePackages, cls).setUpClass()
+        suffix = str(uuid.uuid4())[:6]
+        cls.testuser_name = 'test_{}'.format(suffix)
+        cls.testuser_password = 'test'
+        email = '{}@example.com'.format(cls.testuser_name)
+        cls.create_user(name=cls.testuser_name,
+                        password=cls.testuser_password,
+                        email=email)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.delete_user(cls.testuser_name)
+        super(TestSuitePackages, cls).tearDownClass()
+
     def test_modify_package_name(self):
         """Test check ability to change name of the package
 
@@ -1057,12 +1126,13 @@ class TestSuitePackages(base.PackageTestCase):
         pkg_name = self.alt_archive_name
         self.fill_field(by.By.CSS_SELECTOR,
                         "input[name='modify-name']", pkg_name)
-        self.driver.find_element_by_css_selector(
-            "input[name=modify-is_public]"
-        ).click()
-        self.driver.find_element_by_css_selector(
-            "input[name=modify-enabled]"
-        ).click()
+
+        label = self.driver.find_element_by_css_selector(
+            "label[for=id_modify-is_public]")
+        label.click()
+        label = self.driver.find_element_by_css_selector(
+            "label[for=id_modify-enabled]")
+        label.click()
 
         self.driver.find_element_by_xpath(c.InputSubmit).click()
         self.driver.find_element_by_xpath(c.InputSubmit).click()
@@ -1073,6 +1143,34 @@ class TestSuitePackages(base.PackageTestCase):
 
         self.check_package_parameter_by_name(pkg_name, 'Public', 'True')
         self.check_package_parameter_by_name(pkg_name, 'Active', 'False')
+
+    def test_package_share(self):
+        """Test that admin is able to share Murano Apps
+
+        Scenario:
+            1. Hit 'Modify Package' on any exists package
+            2. Mark 'Public' checkbox
+            3. Hit 'Update' button
+            4. Verify, that package is available for other users
+        """
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+
+        self.select_action_for_package(self.mockapp_id, 'modify_package')
+
+        self.driver.find_element_by_css_selector(
+            "label[for=id_is_public]"
+        ).click()
+
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.wait_for_alert_message()
+        self.log_out()
+        self.log_in(self.testuser_name, self.testuser_password)
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+        self.check_element_on_page(
+            by.By.XPATH, c.AppPackages.format('MockApp'))
 
     def test_upload_package_detail(self):
         """Test check ability to view package details after uploading it."""
@@ -1097,6 +1195,60 @@ class TestSuitePackages(base.PackageTestCase):
             "//a[contains(text(), '{0}')]".format(pkg_name)).click()
         self.assertIn(pkg_name,
                       self.driver.find_element(by.By.XPATH, c.AppDetail).text)
+
+    def test_add_pkg_to_category_non_admin(self):
+        """Test package addition to category as non admin user
+
+        Scenario:
+            1. Log into OpenStack Horizon dashboard as non-admin user
+            2. Navigate to 'Packages' page
+            3. Modify any package by changing its category from
+                'category 1' to 'category 2'
+            4. Log out
+            5. Log into OpenStack Horizon dashboard as admin user
+            6. Navigate to 'Categories' page
+            7. Check that 'category 2' has one more package
+        """
+        # save initial package count
+        self.navigate_to('Manage')
+        self.go_to_submenu('Categories')
+
+        web_pkg_count = int(self.driver.find_element_by_xpath(
+            "//tr[contains(@data-display, 'Web')]/td[2]").text)
+
+        database_pkg_count = int(self.driver.find_element_by_xpath(
+            "//tr[contains(@data-display, 'Database')]/td[2]").text)
+
+        # relogin as test user
+        self.log_out()
+        self.log_in(self.testuser_name, self.testuser_password)
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+
+        self.select_action_for_package(self.postgre_id, 'modify_package')
+        sel = self.driver.find_element_by_xpath(
+            "//select[contains(@name, 'categories')]")
+        sel = ui.Select(sel)
+        sel.deselect_all()
+        sel.select_by_value('Web')
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.wait_for_alert_message()
+
+        self.log_out()
+
+        # log in as admin user
+        self.log_in(cfg.common.user, cfg.common.password)
+
+        # check packages count for categories
+        self.navigate_to('Manage')
+        self.go_to_submenu('Categories')
+        self.check_element_on_page(
+            by.By.XPATH, c.CategoryPackageCount.format(
+                'Web', web_pkg_count + 1))
+        self.check_element_on_page(
+            by.By.XPATH, c.CategoryPackageCount.format(
+                'Databases', database_pkg_count - 1))
 
     def test_category_management(self):
         """Test application category adds and deletes successfully
@@ -1162,9 +1314,9 @@ class TestSuitePackages(base.PackageTestCase):
         # Public = OFF; Active = ON.
         public_checkbox = self.driver.find_element_by_id('id_modify-is_public')
         active_checkbox = self.driver.find_element_by_id('id_modify-enabled')
-        if public_checkbox.is_selected() is True:
+        if public_checkbox.is_selected():
             public_checkbox.click()
-        elif active_checkbox.is_selected() is False:
+        if not active_checkbox.is_selected():
             active_checkbox.click()
         self.driver.find_element_by_xpath(c.InputSubmit).click()
         self.driver.find_element_by_xpath(c.InputSubmit).click()
@@ -1177,7 +1329,10 @@ class TestSuitePackages(base.PackageTestCase):
             c.AppPackages.format(self.archive_name))
         pkg_id = package.get_attribute("data-object-id")
         self.select_action_for_package(pkg_id, 'modify_package')
-        self.driver.find_element_by_id('id_is_public').click()
+
+        label = self.driver.find_element_by_css_selector(
+            "label[for=id_is_public]")
+        label.click()
         self.driver.find_element_by_xpath(c.InputSubmit).click()
         # Expecting Error
         self.wait_for_error_message()
@@ -1225,6 +1380,20 @@ class TestSuiteRepository(base.PackageTestCase):
             f.write("Description: I'm not a murano package at all")
         zip_name = os.path.join(self.serve_dir, 'apps', name + '.zip')
         with zipfile.ZipFile(zip_name, 'w') as archive:
+            archive.write(file_name)
+
+    def _make_big_zip_pkg(self, name, size):
+        file_name = os.path.join(self.serve_dir, 'apps', 'images.lst')
+        self._compose_app(name)
+
+        # create file with size 10 mb
+        with open(file_name, 'wb') as f:
+            f.seek(size - 1)
+            f.write('\0')
+
+        # add created file to archive
+        zip_name = os.path.join(self.serve_dir, 'apps', name + '.zip')
+        with zipfile.ZipFile(zip_name, 'a') as archive:
             archive.write(file_name)
 
     def setUp(self):
@@ -1518,6 +1687,97 @@ class TestSuiteRepository(base.PackageTestCase):
         self.check_element_not_on_page(
             by.By.XPATH, c.AppPackages.format(pkg_name))
 
+    def test_import_big_zip_file(self):
+        """Import very big zip archive.
+
+        Scenario:
+            1. Log in Horizon with admin credentials
+            2. Navigate to 'Packages' page
+            3. Click 'Import Package' and select 'File' as a package source
+            4. Choose very big zip file
+            5. Click on 'Next' button
+            6. Check that error message that user can't upload file more than
+                5 MB is displayed
+        """
+        pkg_name = self.gen_random_resource_name('pkg')
+        self._make_big_zip_pkg(name=pkg_name,
+                               size=10 * 1024 * 1024)
+
+        # import package and choose big zip file for it
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+        self.driver.find_element_by_id(c.UploadPackage).click()
+        sel = self.driver.find_element_by_css_selector(
+            "select[name='upload-import_type']")
+        sel = ui.Select(sel)
+        sel.select_by_value("by_name")
+
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-repo_name']")
+        el.send_keys("{0}".format(pkg_name))
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        # check that error message appeared
+        error_message = ("Error: 400 Bad Request: Uploading file is too "
+                         "large. The limit is 5 Mb")
+        self.check_alert_message(error_message)
+
+        self.check_element_not_on_page(
+            by.By.XPATH, c.AppPackages.format(pkg_name))
+
+    def test_import_bundle_when_dependencies_installed(self):
+        """Test bundle import if some dependencies are installed.
+
+        Check that bundle can be imported if some of its dependencies
+        are already installed from repository.
+        """
+        pkg_name_parent_one = self.gen_random_resource_name('pkg')
+        pkg_name_child_one = self.gen_random_resource_name('pkg')
+        pkg_name_grand_child = self.gen_random_resource_name('pkg')
+        pkg_name_parent_two = self.gen_random_resource_name('pkg')
+        pkg_name_child_two = self.gen_random_resource_name('pkg')
+
+        self._compose_app(pkg_name_parent_one,
+                          require={pkg_name_child_one: ''})
+        self._compose_app(pkg_name_child_one,
+                          require={pkg_name_grand_child: '0.1'})
+        pkg_name_grand_child += '.0.1'
+        self._compose_app(pkg_name_grand_child)
+        self._compose_app(pkg_name_parent_two,
+                          require={pkg_name_child_two: ''})
+        self._compose_app(pkg_name_child_two)
+
+        bundle_name = self.gen_random_resource_name('bundle')
+        self._compose_bundle(bundle_name,
+                             [pkg_name_parent_one, pkg_name_parent_two])
+
+        utils.upload_app_package(self.murano_client, pkg_name_grand_child,
+                                 {"categories": ["Web"], "tags": ["tag"]})
+        utils.upload_app_package(self.murano_client, pkg_name_child_two,
+                                 {"categories": ["Web"], "tags": ["tag"]})
+
+        self.navigate_to('Manage')
+        self.go_to_submenu('Packages')
+        self.driver.find_element_by_id(c.ImportBundle).click()
+        sel = self.driver.find_element_by_css_selector(
+            "select[name='upload-import_type']")
+        sel = ui.Select(sel)
+        sel.select_by_value("by_name")
+
+        el = self.driver.find_element_by_css_selector(
+            "input[name='upload-name']")
+        el.send_keys("{0}".format(bundle_name))
+        self.driver.find_element_by_xpath(c.InputSubmit).click()
+
+        self.wait_for_alert_message()
+
+        pkg_names = [pkg_name_parent_one, pkg_name_child_one,
+                     pkg_name_grand_child, pkg_name_parent_two,
+                     pkg_name_child_two]
+        for pkg_name in pkg_names:
+            self.check_element_on_page(
+                by.By.XPATH, c.AppPackages.format(pkg_name))
+
 
 class TestSuitePackageCategory(base.PackageTestCase):
     def _import_package_with_category(self, package_archive, category):
@@ -1748,3 +2008,50 @@ class TestSuitePackageCategory(base.PackageTestCase):
             category_locator = (by.By.XPATH,
                                 "//tr[@data-display='{}']".format(category))
             self.check_element_on_page(*category_locator)
+
+
+class TestSuiteCategoriesPagination(base.PackageTestCase):
+    def setUp(self):
+        super(TestSuiteCategoriesPagination, self).setUp()
+        self.categories_to_delete = []
+        # Create at least 5 more pages with categories
+        for x in range(cfg.common.items_per_page * 5):
+            name = self.gen_random_resource_name('category')
+            category = self.murano_client.categories.add({'name': name})
+            self.categories_to_delete.append(category.id)
+
+    def tearDown(self):
+        super(TestSuiteCategoriesPagination, self).tearDown()
+        for category_id in self.categories_to_delete:
+            self.murano_client.categories.delete(id=category_id)
+
+    def test_category_pagination(self):
+        """Test categires pagination in case of many categires created """
+        self.navigate_to('Manage')
+        self.go_to_submenu('Categories')
+
+        categories_list = [elem.name for elem in
+                           self.murano_client.categories.list()]
+        # Murano client lists the categories in order of creation
+        # starting from the last created. So need to reverse it to align with
+        # the table in UI form. Where categories are listed starting from the
+        # first created to the last one.
+        categories_list.reverse()
+
+        categories_per_page = cfg.common.items_per_page
+        pages_itself = [categories_list[i:i + categories_per_page] for i in
+                        range(0, len(categories_list), categories_per_page)]
+        for i, names in enumerate(pages_itself, 1):
+            for name in names:
+                self.check_element_on_page(by.By.XPATH, c.Status.format(name))
+            if i != len(pages_itself):
+                self.driver.find_element_by_xpath(c.NextBtn).click()
+        # Wait till the Next button disapper
+        # Otherwise 'Prev' buttion from previous page might be used
+        self.check_element_not_on_page(by.By.XPATH, c.NextBtn)
+        pages_itself.reverse()
+        for i, names in enumerate(pages_itself, 1):
+            for name in names:
+                self.check_element_on_page(by.By.XPATH, c.Status.format(name))
+            if i != len(pages_itself):
+                self.driver.find_element_by_xpath(c.PrevBtn).click()
