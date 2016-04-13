@@ -3,9 +3,7 @@
 set -e
 
 if [ "$1" = "configure" ] ; then
-	# (tlbr) Run of collectstatic is required but do not run it until easy switch for
-	# for Horizon package will be implemented.
-	#/usr/share/openstack-dashboard/manage.py collectstatic --clear --noinput
+	/usr/share/openstack-dashboard/manage.py collectstatic --clear --noinput
 
 	# Compress the JS and CSS with python-compressor and python-lesscpy
 	/usr/share/openstack-dashboard/manage.py compress --force
