@@ -1,8 +1,12 @@
-murano-dashboard (1:2.0.0-2) UNRELEASED; urgency=medium
+murano-dashboard (1:2.0.0-2) unstable; urgency=medium
 
+  [ Ondřej Nový ]
   * Standards-Version is 3.9.8 now (no change)
 
- -- Ondřej Nový <novy@ondrej.org>  Sat, 09 Apr 2016 19:23:58 +0200
+  [ Thomas Goirand ]
+  * Fixed missing html templates.
+
+ -- Thomas Goirand <zigo@debian.org>  Wed, 13 Apr 2016 22:16:51 +0000
 
 murano-dashboard (1:2.0.0-1) unstable; urgency=medium
 
