@@ -1,3 +1,9 @@
+murano-dashboard (1:2.0.0-4) UNRELEASED; urgency=medium
+
+  * rm -rf /var/cache/murano-dashboard on purge (Closes: #820287).
+
+ -- Thomas Goirand <zigo@debian.org>  Thu, 19 May 2016 15:18:43 +0200
+
 murano-dashboard (1:2.0.0-3) unstable; urgency=medium
 
   * Do no copy static. (LP: #1578630)
