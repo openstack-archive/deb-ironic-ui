@@ -2,7 +2,6 @@
 
 PYTHONS:=$(shell pyversions -vr)
 
-UPSTREAM_GIT = git://github.com/openstack/ironic-ui.git
 include /usr/share/openstack-pkg-tools/pkgos.make
 export OSLO_PACKAGE_VERSION=$(VERSION)
 
