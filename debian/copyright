@@ -1,6 +1,6 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: ironic-ui
-Source: git://github.com/hp-storage/ironic-ui.git
+Source: https://github.com/hp-storage/ironic-ui
 
 Files: *
 Copyright: (c) 2013-2016, Hewlett-Packard Development Company, L.P.
