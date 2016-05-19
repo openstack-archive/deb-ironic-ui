@@ -1,6 +1,10 @@
 murano-dashboard (1:2.0.0-4) UNRELEASED; urgency=medium
 
+  [ Thomas Goirand ]
   * rm -rf /var/cache/murano-dashboard on purge (Closes: #820287).
+
+  [ Ondřej Nový ]
+  * d/rules: Removed UPSTREAM_GIT, changed to default value
 
  -- Thomas Goirand <zigo@debian.org>  Thu, 19 May 2016 15:18:43 +0200
 
