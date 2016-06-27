@@ -11,7 +11,7 @@ Build-Depends: debhelper (>= 9),
                python-setuptools,
                python-sphinx,
 Build-Depends-Indep: nodeenv,
-                     openstack-dashboard (>= 2:8.0.0),
+                     openstack-dashboard (>= 3:9.0.0),
                      python-babel,
                      python-bs4,
                      python-coverage,
@@ -46,7 +46,7 @@ Vcs-Browser: https://anonscm.debian.org/cgit/openstack/murano-dashboard.git/
 
 Package: python-murano-dashboard
 Architecture: all
-Depends: openstack-dashboard (>= 2:8.0.0),
+Depends: openstack-dashboard (>= 3:9.0.0),
          python-babel,
          python-bs4,
          python-django (>= 1.8),
