@@ -2,7 +2,7 @@ murano-dashboard (1:2.0.0-5) unstable; urgency=medium
 
   * Added missing EPOC in openstack-dashboard (build-)depends.
   * CVE-2016-4972: RCE vulnerability in Openstack Murano using insecure YAML
-    tags. Applied upstrema patch: Inherit custom yaml Loader from
+    tags. Applied upstream patch: Inherit custom yaml Loader from
     yaml.SafeLoader (Closes: #828064).
 
  -- Thomas Goirand <zigo@debian.org>  Fri, 27 May 2016 11:56:25 +0200
