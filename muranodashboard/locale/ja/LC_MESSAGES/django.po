@@ -1,34 +1,20 @@
 # Akihiro Motoki <amotoki@gmail.com>, 2016. #zanata
-# KATO Tomoyuki <kato.tomoyuki@jp.fujitsu.com>, 2016. #zanata
+# Andreas Jaeger <jaegerandi@gmail.com>, 2016. #zanata
+# Shu Muto <shu-mutou@rf.jp.nec.com>, 2016. #zanata
 msgid ""
 msgstr ""
-"Project-Id-Version: PROJECT VERSION\n"
-"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2016-03-25 12:06+0000\n"
+"Project-Id-Version: murano-dashboard 3.0.0.0b2.dev32\n"
+"Report-Msgid-Bugs-To: https://bugs.launchpad.net/openstack-i18n/\n"
+"POT-Creation-Date: 2016-06-21 05:38+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"PO-Revision-Date: 2016-03-25 11:35+0000\n"
-"Last-Translator: Akihiro Motoki <amotoki@gmail.com>\n"
+"PO-Revision-Date: 2016-06-16 05:47+0000\n"
+"Last-Translator: Shu Muto <shu-mutou@rf.jp.nec.com>\n"
 "Language-Team: Japanese\n"
 "Language: ja\n"
 "X-Generator: Zanata 3.7.3\n"
 "Plural-Forms: nplurals=1; plural=0\n"
-
-msgid "\"Add Application\""
-msgstr "\"アプリケーションの追加\""
-
-msgid "\"Applications\""
-msgstr "\"アプリケーション\""
-
-msgid "'Import Bundle'"
-msgstr "'インポートバンドル'"
-
-msgid "'Import Package'"
-msgstr "'パッケージのインポート'"
-
-msgid "'Modify Package'"
-msgstr "'パッケージの変更'"
 
 msgid "-"
 msgstr "-"
@@ -108,9 +94,6 @@ msgstr "アプリケーションカテゴリー:"
 msgid "App category"
 msgstr "アプリケーションカテゴリー"
 
-msgid "Application Catalog"
-msgstr "アプリケーションカタログ"
-
 msgid "Application Categories"
 msgstr "アプリケーションカテゴリー"
 
@@ -141,6 +124,9 @@ msgstr "自動"
 msgid "Back"
 msgstr "戻る"
 
+msgid "Browse"
+msgstr "探索"
+
 msgid "Bundle Name"
 msgstr "バンドル名"
 
@@ -162,10 +148,8 @@ msgstr "バンドルの完全な名前"
 msgid "Cancel"
 msgstr "取り消し"
 
-msgid "Cannot get allowed subnet for the environment, consult your admin"
-msgstr ""
-"この環境のために許可されたサブネットを取得できません。あなたの管理者に相談し"
-"てください。"
+msgid "Catalog"
+msgstr "カタログ"
 
 msgid "Categories"
 msgstr "カテゴリー"
@@ -297,10 +281,6 @@ msgstr "デプロイを開始しました"
 msgid "Deployed Components"
 msgstr "デプロイ済みコンポーネント"
 
-msgid "Deployed Environment"
-msgid_plural "Deployed Environments"
-msgstr[0] "環境をデプロイしました"
-
 msgid "Deployment Details"
 msgstr "デプロイの詳細"
 
@@ -414,37 +394,12 @@ msgstr "完全な形のパッケージ名。"
 
 #, python-format
 msgid ""
-"Go to\n"
-"                        <b>\n"
-"                            <a href=%(pkg_def_url)s>Packages</a>\n"
-"                        </b>, click 'Import Package' and select "
-"<i>Repository</i> as <i>Package Source</i>.\n"
-"                        "
+"Go to <b> <a href=%(pkg_def_url)s>Packages</a> </b>, click 'Import Package' "
+"and select <i>Repository</i> as <i>Package Source</i>."
 msgstr ""
-"<b>\n"
-"                            <a href=%(pkg_def_url)s>パッケージ</a>\n"
-"                        </b>に進んで、「パッケージのインポート」をクリックし"
-"て、\n"
-"                        <i>パッケージのソース</i>として<i>リポジトリー</i>を"
-"選択してください。\n"
-"                        "
-
-#, python-format
-msgid ""
-"Go to\n"
-"                <b>\n"
-"                    <a href=%(pkg_def_url)s>Packages</a>\n"
-"                </b>, click 'Import Package' and select <i>Repository</i> as "
-"<i>Package Source</i>.\n"
-"                "
-msgstr ""
-"<b>\n"
-"                            <a href=%(pkg_def_url)s>パッケージ</a>\n"
-"                        </b>に進んで、「パッケージのインポート」をクリックし"
-"て、\n"
-"                        <i>パッケージのソース</i>として<i>リポジトリー</i>を"
-"選択してください。\n"
-"                        "
+"<b> <a href=%(pkg_def_url)s>パッケージ</a> </b>に進んで、「パッケージのイン"
+"ポート」をクリックして、<i>パッケージのソース</i>として<i>リポジトリー</i>を"
+"選択してください。                        "
 
 msgid "HTTP/HTTPS URL of the bundle file."
 msgstr "バンドルファイルの HTTP/HTTPS URL。"
@@ -563,9 +518,6 @@ msgstr "パッケージの変更"
 
 msgid "Modifying package failed"
 msgstr "パッケージの変更に失敗しました。"
-
-msgid "Murano"
-msgstr "Murano"
 
 msgid "NO ENVIRONMENTS"
 msgstr "環境なし"
@@ -755,14 +707,8 @@ msgstr "要件"
 msgid "Retype your password"
 msgstr "パスワードの再入力"
 
-msgid "Router is not found. You should create one explicitly."
-msgstr "ルーターが見つかりません。明示的に作成する必要があります。"
-
 msgid "Select Application"
 msgstr "アプリケーションの選択"
-
-msgid "Select IP from available range: {0} "
-msgstr "利用可能な範囲から IP を選択してください: {0} "
 
 msgid "Select Image"
 msgstr "イメージを選択してください"
@@ -791,38 +737,30 @@ msgstr "ごめんなさい、この環境はすでに存在しません"
 msgid ""
 "Sorry, you can't add application right now. The environment is deploying."
 msgstr ""
-"ごめんなさい。アプリケーションをすぐに追加できません。環境がデプロイ中です。"
+"すみませんが、アプリケーションをすぐに追加できません。環境がデプロイ中です。"
 
 msgid "Sorry, you can't delete service right now"
 msgstr "申し訳ありません。サービスをすぐに削除できません。"
 
-msgid "Specified Cluster Static IP is already in use"
-msgstr "指定されたクラスター静的 IP は使用中です。"
-
-msgid "Specified Cluster Static IP is not in valid IP range"
-msgstr "指定したクラスターの静的 IP が、有効な IP 範囲にありません。"
-
-msgid "Specified IP address should belong to {0} subnet"
-msgstr "指定された IP アドレスが {0} サブネットに含まれません。"
-
 msgid "Specified title already in use. Please choose another one."
 msgstr "すでに使用中のタイトルを指定しました。別のものを選択してください。"
-
-msgid "Specify valid fixed IP"
-msgstr "有効な Fixed IP を指定してください"
 
 msgid "Specifying a category helps to filter applications in the catalog"
 msgstr ""
 "カテゴリを指定すると、カタログ内でアプリケーションをフィルタリングする際に使"
 "用できます。"
 
-msgid "Start Deleting Component"
-msgid_plural "Start Deleting Components"
+msgid "Started Deleting Component"
+msgid_plural "Started Deleting Components"
 msgstr[0] "コンポーネントの削除を開始しました"
 
-msgid "Start Deleting Environment"
-msgid_plural "Start Deleting Environments"
+msgid "Started Deleting Environment"
+msgid_plural "Started Deleting Environments"
 msgstr[0] "環境の削除を開始しました"
+
+msgid "Started deploying Environment"
+msgid_plural "Started deploying Environments"
+msgstr[0] "環境のデプロイを開始しました"
 
 msgid "Status"
 msgstr "状態"
@@ -880,15 +818,6 @@ msgid "There are no applications in the catalog. You can import apps from"
 msgstr ""
 "カタログにはアプリケーションがありません。次の URL からアプリケーションをイン"
 "ポートできます。"
-
-#, python-format
-msgid ""
-"There are no applications in the catalog. You can import apps from\n"
-"                <a href=\"%(repo_url)s\" target=\"_blank\"> %(repo_url)s</a>."
-msgstr ""
-"カタログにはアプリケーションがありません。\n"
-"<a href=\"%(repo_url)s\" target=\"_blank\"> %(repo_url)s</a> からアプリケー"
-"ションをインポートできます。"
 
 msgid "There are no applications matching your criteria."
 msgstr "基準を満たすアプリケーションはありません。"
@@ -1009,9 +938,6 @@ msgstr "アベイラビリティーゾーンを取得できません。"
 msgid "Unable to retrieve details for service"
 msgstr "サービスの詳細を取得できません。"
 
-msgid "Unable to retrieve information about fixed IP or IP is not valid."
-msgstr "Fixed IP の情報を取得できません、または IP が無効です"
-
 msgid "Unable to retrieve list of deployments"
 msgstr "デプロイの一覧を取得できません。"
 
@@ -1042,6 +968,9 @@ msgstr "更新"
 
 msgid "Update Image"
 msgstr "イメージの更新"
+
+msgid "Update This Environment"
+msgstr "この環境の更新"
 
 msgid "Updated"
 msgstr "更新時刻"

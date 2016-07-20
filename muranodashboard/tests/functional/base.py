@@ -13,14 +13,15 @@
 import json
 import logging
 import os
+import six.moves.urllib.parse as urlparse
 import sys
 import testtools
 import time
-import urlparse
 import uuid
 
 from glanceclient import client as gclient
-from keystoneclient.v2_0 import client as ksclient
+from keystoneauth1.identity import v3
+from keystoneclient.v3 import client
 from muranoclient import client as mclient
 from oslo_log import handlers
 from oslo_log import log
@@ -54,10 +55,15 @@ else:
 class UITestCase(BaseDeps):
     @classmethod
     def setUpClass(cls):
-        cls.keystone_client = ksclient.Client(username=cfg.common.user,
-                                              password=cfg.common.password,
-                                              tenant_name=cfg.common.tenant,
-                                              auth_url=cfg.common.keystone_url)
+        auth = v3.Password(user_domain_name='Default',
+                           username=cfg.common.user,
+                           password=cfg.common.password,
+                           project_domain_name='Default',
+                           project_name=cfg.common.tenant,
+                           auth_url=cfg.common.keystone_url)
+        cls.keystone_client = client.Client(
+            auth_url=cfg.common.keystone_url, auth=auth,
+            username=cfg.common.user, password=cfg.common.password)
         cls.murano_client = mclient.Client(
             '1', endpoint=cfg.common.murano_url,
             token=cls.keystone_client.auth_token)
@@ -84,7 +90,7 @@ class UITestCase(BaseDeps):
         self.switch_to_project(cfg.common.tenant)
 
         for project_id in self.projects_to_delete:
-            self.keystone_client.tenants.delete(project_id)
+            self.keystone_client.projects.delete(project_id)
 
         for env in self.murano_client.environments.list():
             self.remove_environment(env.id)
@@ -113,9 +119,26 @@ class UITestCase(BaseDeps):
     @classmethod
     def create_user(cls, name, password=None, email=None, tenant_id=None):
         if tenant_id is None:
-            tenant_id = cls.keystone_client.tenant_id
-        cls.keystone_client.users.create(name, password=password, email=email,
-                                         tenant_id=tenant_id, enabled=True)
+            projects = cls.keystone_client.projects.list()
+            tenant_id = [project.id for project in projects
+                         if project.name == cfg.common.tenant][0]
+            cls.keystone_client.users.create(name, domain='Default',
+                                             password=password,
+                                             email=email,
+                                             project=tenant_id,
+                                             enabled=True)
+        else:
+            cls.keystone_client.users.create(name, domain='Default',
+                                             password=password,
+                                             email=email,
+                                             project=tenant_id,
+                                             enabled=True)
+        roles = cls.keystone_client.roles.list()
+        role_id = [role.id for role in roles if role.name == 'Member'][0]
+        users = cls.keystone_client.users.list()
+        user_id = [user.id for user in users if user.name == name][0]
+        cls.keystone_client.roles.grant(role_id, user=user_id,
+                                        project=tenant_id)
 
     @classmethod
     def delete_user(cls, name):
@@ -124,22 +147,25 @@ class UITestCase(BaseDeps):
     def get_tenantid_by_name(self, name):
         """Returns TenantID of the project by project's name"""
         tenant_id = [tenant.id for tenant
-                     in self.keystone_client.tenants.list()
+                     in self.keystone_client.projects.list()
                      if tenant.name == name]
-        return tenant_id[-1]
+        return tenant_id[0]
 
     def create_project(self, name):
-        project = self.keystone_client.tenants.create(
-            tenant_name=name, description="For Test Purposes", enabled=True)
+        project = self.keystone_client.projects.create(
+            name=name, domain="default", description="For Test Purposes",
+            enabled=True)
         self.projects_to_delete.append(project.id)
         return project.id
 
     def add_user_to_project(self, project_id, user_name, user_role=None):
-        if user_role is None:
+        if not user_role:
             roles = self.keystone_client.roles.list()
-            user_role = [role for role in roles if role.name == 'Member'][0]
-        tenant = self.keystone_client.tenants.get(project_id)
-        tenant.add_user(user_name, user_role)
+            role_id = [role.id for role in roles if role.name == 'Member'][0]
+        if not user_name:
+            user_name = cfg.common.user
+        self.keystone_client.roles.grant(role_id, user=user_name,
+                                         project=project_id)
 
     def switch_to_project(self, name):
         projects_xpath = ("//ul[contains(@class, navbar-nav)]"
@@ -177,7 +203,7 @@ class UITestCase(BaseDeps):
         self.fill_field(by.By.ID, 'id_username', username)
         self.fill_field(by.By.ID, 'id_password', password)
         self.driver.find_element_by_xpath("//button[@type='submit']").click()
-        murano = self.driver.find_element_by_xpath(consts.Murano)
+        murano = self.driver.find_element_by_xpath(consts.Applications)
         if 'collapsed' in murano.get_attribute('class'):
             murano.click()
 
@@ -192,8 +218,8 @@ class UITestCase(BaseDeps):
         self.driver.find_element(by=by_find, value=field).clear()
         self.driver.find_element(by=by_find, value=field).send_keys(value)
 
-    def get_element_id(self, el_name):
-        el = ui.WebDriverWait(self.driver, 10).until(
+    def get_element_id(self, el_name, sec=10):
+        el = ui.WebDriverWait(self.driver, sec).until(
             EC.presence_of_element_located(
                 (by.By.XPATH, consts.AppPackages.format(el_name))))
         path = el.get_attribute("id")
@@ -216,18 +242,17 @@ class UITestCase(BaseDeps):
                           ".//*[@class='page-header']").text)
 
     def navigate_to(self, menu):
-        el = ui.WebDriverWait(self.driver, 10).until(
-            EC.presence_of_element_located(
-                (by.By.XPATH, getattr(consts, menu))))
+        el = self.wait_element_is_clickable(
+            by.By.XPATH, getattr(consts, menu))
         if 'collapsed' in el.get_attribute('class'):
             el.click()
         self.wait_for_sidebar_is_loaded()
 
-    def select_from_list(self, list_name, value):
+    def select_from_list(self, list_name, value, sec=10):
         locator = (by.By.XPATH,
                    "//select[contains(@name, '{0}')]"
                    "/option[@value='{1}']".format(list_name, value))
-        el = ui.WebDriverWait(self.driver, 10).until(
+        el = ui.WebDriverWait(self.driver, sec).until(
             EC.presence_of_element_located(locator))
         el.click()
 
@@ -309,10 +334,10 @@ class UITestCase(BaseDeps):
         btn_id = "environments__row_{0}__action_{1}".format(element_id, action)
         self.driver.find_element_by_id(btn_id).click()
 
-    def wait_for_alert_message(self):
+    def wait_for_alert_message(self, sec=5):
         locator = (by.By.CSS_SELECTOR, 'div.alert-success')
         logger.debug("Waiting for a success message")
-        ui.WebDriverWait(self.driver, 5).until(
+        ui.WebDriverWait(self.driver, sec).until(
             EC.presence_of_element_located(locator))
 
     def wait_for_error_message(self, sec=20):
@@ -322,12 +347,12 @@ class UITestCase(BaseDeps):
             EC.presence_of_element_located(locator))
         return self.driver.find_element(*locator).text
 
-    def wait_element_is_clickable(self, method, element):
-        return ui.WebDriverWait(self.driver, 10).until(
+    def wait_element_is_clickable(self, method, element, sec=10):
+        return ui.WebDriverWait(self.driver, sec).until(
             EC.element_to_be_clickable((method, element)))
 
-    def wait_for_sidebar_is_loaded(self):
-        ui.WebDriverWait(self.driver, 10).until(
+    def wait_for_sidebar_is_loaded(self, sec=10):
+        ui.WebDriverWait(self.driver, sec).until(
             EC.presence_of_element_located(
                 (by.By.CSS_SELECTOR, "div#sidebar li.active")))
         time.sleep(0.5)
@@ -435,13 +460,13 @@ class ApplicationTestCase(ImageTestCase):
         el.click()
         self.wait_for_alert_message()
 
-    def select_action_for_package(self, package_id, action):
+    def select_action_for_package(self, package_id, action, sec=10):
         if action == 'more':
             el = self.wait_element_is_clickable(
                 by.By.XPATH, "//tr[@data-object-id='{0}']"
                              "//a[@data-toggle='dropdown']".format(package_id))
             el.click()
-            ui.WebDriverWait(self.driver, 10).until(lambda s: s.find_element(
+            ui.WebDriverWait(self.driver, sec).until(lambda s: s.find_element(
                 by.By.XPATH,
                 ".//*[@id='packages__row_{0}__action_download_package']".
                 format(package_id)).is_displayed())
@@ -473,7 +498,7 @@ class ApplicationTestCase(ImageTestCase):
         self.wait_for_alert_message()
 
     def add_app_to_env(self, app_id, app_name='TestApp'):
-        self.go_to_submenu('Applications')
+        self.go_to_submenu('Browse')
         self.select_and_click_action_for_app('quick-add', app_id)
         field_id = "{0}_0-name".format(app_id)
         self.fill_field(by.By.ID, field_id, value=app_name)

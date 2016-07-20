@@ -40,6 +40,7 @@ from horizon import exceptions
 from horizon.forms import views
 from horizon import messages
 from horizon import tabs
+from horizon import views as generic_views
 from oslo_log import log as logging
 import six
 
@@ -324,9 +325,10 @@ class LazyWizard(wizard_views.SessionWizardView):
         return view
 
 
-class Wizard(views.ModalFormMixin, LazyWizard):
+class Wizard(generic_views.PageTitleMixin, views.ModalFormMixin, LazyWizard):
     template_name = 'services/wizard_create.html'
     do_redirect = False
+    page_title = _("Add Application")
 
     def get_prefix(self, *args, **kwargs):
         base = super(Wizard, self).get_prefix(*args, **kwargs)
@@ -464,8 +466,9 @@ class Wizard(views.ModalFormMixin, LazyWizard):
         return context
 
 
-class IndexView(list_view.ListView):
+class IndexView(generic_views.PageTitleMixin, list_view.ListView):
     paginate_by = 6
+    page_title = _("Browse")
 
     def __init__(self, **kwargs):
         super(IndexView, self).__init__(**kwargs)
@@ -519,7 +522,7 @@ class IndexView(list_view.ListView):
                 marker=marker, page_size=self.paginate_by, sort_dir=sort_dir,
                 limit=self.paginate_by)
 
-        if self.request.GET.get('sort_dir', 'asc') == 'desc':
+        if sort_dir == 'desc':
             packages = list(reversed(packages))
 
         return packages
@@ -599,12 +602,15 @@ class IndexView(list_view.ListView):
         context['no_apps'] = True
         if self.get_current_category() != ALL_CATEGORY_NAME or search:
             context['no_apps'] = False
+        context['MURANO_USE_GLARE'] = getattr(settings, 'MURANO_USE_GLARE',
+                                              False)
         return context
 
 
 class AppDetailsView(tabs.TabView):
     tab_group_class = catalog_tabs.ApplicationTabs
     template_name = 'catalog/app_details.html'
+    page_title = '{{ app.name }}'
 
     app = None
 

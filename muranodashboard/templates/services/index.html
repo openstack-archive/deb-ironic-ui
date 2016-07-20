@@ -1,6 +1,5 @@
 {% extends 'murano_base.html' %}
 {% load i18n %}
-{% load breadcrumb_nav %}
 {% load static %}
 {% load compress %}
 {% load horizon %}
@@ -8,12 +7,11 @@
 {% block title %}{% trans "Components" %}{% endblock %}
 
 {% block page_header %}
-  <div class='page-header'>
-    {% breadcrumb_nav %}
-  </div>
+  {% include "horizon/common/_detail_header.html" %}
 {% endblock page_header %}
 {% block main %}
     <input type="hidden" id="environmentId" value="{{ environment_id }}">
+    <input type="hidden" id="pollInterval" value="{{ poll_interval }}">
     <div class="row">
         <div class="col-xs-12 col-sm-12 col-md-12 col-lg-12">
             {{ tab_group.render }}

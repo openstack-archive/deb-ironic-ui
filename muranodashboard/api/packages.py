@@ -54,6 +54,14 @@ def package_list(request, marker=None, filters=None, paginate=False,
     return packages, has_more_data
 
 
+def apps_that_inherit(request, fqn):
+    glare = getattr(settings, 'MURANO_USE_GLARE', False)
+    if not glare:
+        return []
+    apps = api.muranoclient(request).packages.filter(inherits=fqn)
+    return apps
+
+
 def app_by_fqn(request, fqn, catalog=True):
     apps = api.muranoclient(request).packages.filter(fqn=fqn, catalog=catalog)
     try:
@@ -63,7 +71,7 @@ def app_by_fqn(request, fqn, catalog=True):
 
 
 def make_loader_cls():
-    class Loader(yaml.Loader):
+    class Loader(yaml.SafeLoader):
         pass
 
     def yaql_constructor(loader, node):
@@ -72,7 +80,7 @@ def make_loader_cls():
 
     # workaround for PyYAML bug: http://pyyaml.org/ticket/221
     resolvers = {}
-    for k, v in yaml.Loader.yaml_implicit_resolvers.items():
+    for k, v in yaml.SafeLoader.yaml_implicit_resolvers.items():
         resolvers[k] = v[:]
     Loader.yaml_implicit_resolvers = resolvers
 
@@ -86,7 +94,7 @@ def make_loader_cls():
 # Here are cached some data calls to api; note that not every package attribute
 # getter should be cached - only immutable ones could be safely cached. E.g.,
 # it would be a mistake to cache Application Name because it is mutable and can
-# be changed in Manage -> Package Definitions while cache is immutable (i.e. it
+# be changed in Manage -> Packages while cache is immutable (i.e. it
 # its contents are obtained from the api only the first time).
 @cache.with_cache('ui', 'ui.yaml')
 def get_app_ui(request, app_id):

@@ -1,11 +1,9 @@
-# Eric Baum <ecbaum@gmail.com>, 2016. #zanata
-# José Mello <jose.eduardo.jr@gmail.com>, 2016. #zanata
-# Marcelo Dieder <marcelodieder@gmail.com>, 2016. #zanata
+# Andreas Jaeger <jaegerandi@gmail.com>, 2016. #zanata
 msgid ""
 msgstr ""
-"Project-Id-Version: PROJECT VERSION\n"
-"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2016-03-24 15:57+0000\n"
+"Project-Id-Version: murano-dashboard 3.0.0.0b2.dev32\n"
+"Report-Msgid-Bugs-To: https://bugs.launchpad.net/openstack-i18n/\n"
+"POT-Creation-Date: 2016-06-21 05:38+0000\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -15,21 +13,6 @@ msgstr ""
 "Language: pt-BR\n"
 "X-Generator: Zanata 3.7.3\n"
 "Plural-Forms: nplurals=2; plural=(n != 1)\n"
-
-msgid "\"Add Application\""
-msgstr "\"Adicionar Aplicação\""
-
-msgid "\"Applications\""
-msgstr "\"Aplicações\""
-
-msgid "'Import Bundle'"
-msgstr "'Importar Conjunto'"
-
-msgid "'Import Package'"
-msgstr "'Importar Pacote'"
-
-msgid "'Modify Package'"
-msgstr "'Modificar Pacote'"
 
 msgid "-"
 msgstr "- "
@@ -113,9 +96,6 @@ msgstr "Categoria de Aplicativos:"
 msgid "App category"
 msgstr "Categoria de aplicação"
 
-msgid "Application Catalog"
-msgstr "Catálogo de Aplicações"
-
 msgid "Application Categories"
 msgstr "Categoria de Aplicações"
 
@@ -168,11 +148,6 @@ msgstr "Nome completo do conjunto."
 
 msgid "Cancel"
 msgstr "Cancelar"
-
-msgid "Cannot get allowed subnet for the environment, consult your admin"
-msgstr ""
-"Não foi possível obter as subredes autorizadas para o ambiente, consulte seu "
-"administrador"
 
 msgid "Categories"
 msgstr "Categorias"
@@ -311,11 +286,6 @@ msgstr "Implatação iniciada"
 msgid "Deployed Components"
 msgstr "Componentes Implantados"
 
-msgid "Deployed Environment"
-msgid_plural "Deployed Environments"
-msgstr[0] "Ambiente Implantado"
-msgstr[1] "Ambientes Implantados"
-
 msgid "Deployment Details"
 msgstr "Detalhes da Implantação"
 
@@ -428,38 +398,6 @@ msgstr ""
 
 msgid "Fully qualified package name."
 msgstr "Nome totalmente qualificado do pacote."
-
-#, python-format
-msgid ""
-"Go to\n"
-"                        <b>\n"
-"                            <a href=%(pkg_def_url)s>Packages</a>\n"
-"                        </b>, click 'Import Package' and select "
-"<i>Repository</i> as <i>Package Source</i>.\n"
-"                        "
-msgstr ""
-"Vá para\n"
-"                        <b>\n"
-"                            <a href=%(pkg_def_url)s>Pacotes</a>\n"
-"                        </b>, clique 'Importar Pacotes' e selecione "
-"<i>Repositório</i> como <i>Origem do Pacote</i>.\n"
-"                        "
-
-#, python-format
-msgid ""
-"Go to\n"
-"                <b>\n"
-"                    <a href=%(pkg_def_url)s>Packages</a>\n"
-"                </b>, click 'Import Package' and select <i>Repository</i> as "
-"<i>Package Source</i>.\n"
-"                "
-msgstr ""
-"Vá para\n"
-"                <b>\n"
-"                    <a href=%(pkg_def_url)s>Pacotes</a>\n"
-"                </b>, clique 'Importar Pacote' e selecione <i>Repositório</"
-"i> como <i>Origem do Pacote</i>.\n"
-"                "
 
 msgid "HTTP/HTTPS URL of the bundle file."
 msgstr "URL HTTP/HTTPS do arquivo do conjunto."
@@ -579,9 +517,6 @@ msgstr "Modificar Pacote"
 
 msgid "Modifying package failed"
 msgstr "Falha ao modificar pacote"
-
-msgid "Murano"
-msgstr "Murano"
 
 msgid "NO ENVIRONMENTS"
 msgstr "NENHUM AMBIENTE"
@@ -773,14 +708,8 @@ msgstr "Requisitos"
 msgid "Retype your password"
 msgstr "Digite sua senha novamente"
 
-msgid "Router is not found. You should create one explicitly."
-msgstr "Roteador não encontrado. Você deve criar um explicitamente."
-
 msgid "Select Application"
 msgstr "Selecione um aplicação"
-
-msgid "Select IP from available range: {0} "
-msgstr "Selecione um IP do conjunto disponível: {0}"
 
 msgid "Select Image"
 msgstr "Selecione a Imagem"
@@ -815,35 +744,11 @@ msgstr ""
 msgid "Sorry, you can't delete service right now"
 msgstr "Desculpe, você não pode remover o serviço agora"
 
-msgid "Specified Cluster Static IP is already in use"
-msgstr "O IP estático especificado para o cluster já está em uso"
-
-msgid "Specified Cluster Static IP is not in valid IP range"
-msgstr ""
-"O IP estático especificado para o cluster não está em um conjunto válido de "
-"IPs"
-
-msgid "Specified IP address should belong to {0} subnet"
-msgstr "O endereço IP especificado deve pertencer a subrede {0}"
-
 msgid "Specified title already in use. Please choose another one."
 msgstr "O título especificado já esta em uso. Por favor escolha outro."
 
-msgid "Specify valid fixed IP"
-msgstr "Especifique um IP fixo válido"
-
 msgid "Specifying a category helps to filter applications in the catalog"
 msgstr "Especificar uma categoria ajuda a filtrar aplicações no catálogo"
-
-msgid "Start Deleting Component"
-msgid_plural "Start Deleting Components"
-msgstr[0] "Iniciar Remoção de Componente"
-msgstr[1] "Iniciar Remoção de Componentes"
-
-msgid "Start Deleting Environment"
-msgid_plural "Start Deleting Environments"
-msgstr[0] "Iniciar remoção de ambiente"
-msgstr[1] "Iniciar remoção de ambientes"
 
 msgid "Status"
 msgstr "Estado"
@@ -899,14 +804,6 @@ msgstr "O dado solicitado não é adequado para o servidor."
 msgid "There are no applications in the catalog. You can import apps from"
 msgstr ""
 "Não existem aplicações neste catálogo. Você pode importas aplicações de"
-
-#, python-format
-msgid ""
-"There are no applications in the catalog. You can import apps from\n"
-"                <a href=\"%(repo_url)s\" target=\"_blank\"> %(repo_url)s</a>."
-msgstr ""
-"Não existem aplicações neste catálogo. Você pode importar aplicações de\n"
-"                <a href=\"%(repo_url)s\" target=\"_blank\"> %(repo_url)s</a>."
 
 msgid "There are no applications matching your criteria."
 msgstr "Não há aplicações correspondentes aos seus critérios."
@@ -1030,10 +927,6 @@ msgstr "Não foi possível obter as zonas de disponibilidade"
 
 msgid "Unable to retrieve details for service"
 msgstr "Não foi possível obter detalhes do serviço"
-
-msgid "Unable to retrieve information about fixed IP or IP is not valid."
-msgstr ""
-"Não foi possível obter informação sobre o IP fixo ou o IP não é válido."
 
 msgid "Unable to retrieve list of deployments"
 msgstr "Não foi possível obter a lista de implantações"

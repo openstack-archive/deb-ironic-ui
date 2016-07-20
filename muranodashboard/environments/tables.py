@@ -12,8 +12,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import json
-
 from django.core.urlresolvers import reverse
 from django import http as django_http
 from django import shortcuts
@@ -46,6 +44,25 @@ def _get_environment_status_and_version(request, table):
     status = getattr(env, 'status', None)
     version = getattr(env, 'version', None)
     return status, version
+
+
+def _check_row_actions_allowed(action, request):
+    envs = action.table.data
+    if not envs:
+        return False
+    for env in envs:
+        if action.allowed(request, env):
+            return True
+    return False
+
+
+def _environment_has_deployed_services(request, environment_id):
+    deployments = api.deployments_list(request, environment_id)
+    if not deployments:
+        return False
+    if not deployments[0].description['services']:
+        return False
+    return True
 
 
 class AddApplication(tables.LinkAction):
@@ -101,16 +118,19 @@ class DeleteEnvironment(tables.DeleteAction):
     @staticmethod
     def action_past(count):
         return ungettext_lazy(
-            u"Start Deleting Environment",
-            u"Start Deleting Environments",
+            u"Started Deleting Environment",
+            u"Started Deleting Environments",
             count
         )
 
     def allowed(self, request, environment):
-        if environment:
-            return environment.status not in (consts.STATUS_ID_DEPLOYING,
-                                              consts.STATUS_ID_DELETING)
-        return True
+        # table action case: action allowed if any row action allowed
+        if not environment:
+            return _check_row_actions_allowed(self, request)
+
+        # row action case
+        return environment.status not in (consts.STATUS_ID_DEPLOYING,
+                                          consts.STATUS_ID_DELETING)
 
     def action(self, request, environment_id):
         try:
@@ -152,6 +172,12 @@ class AbandonEnvironment(tables.DeleteAction):
          * environment is new
          * app added to env, but not deploy is not started
         """
+
+        # table action case: action allowed if any row action allowed
+        if not environment:
+            return _check_row_actions_allowed(self, request)
+
+        # row action case
         status = getattr(environment, 'status', None)
         if status in [consts.STATUS_ID_NEW, consts.STATUS_ID_PENDING]:
             return False
@@ -181,8 +207,8 @@ class DeleteService(tables.DeleteAction):
     @staticmethod
     def action_past(count):
         return ungettext_lazy(
-            u"Start Deleting Component",
-            u"Start Deleting Components",
+            u"Started Deleting Component",
+            u"Started Deleting Components",
             count
         )
 
@@ -208,9 +234,10 @@ class DeleteService(tables.DeleteAction):
 class DeployEnvironment(tables.BatchAction):
     name = 'deploy'
     classes = ('btn-launch',)
+    icon = "play"
 
     @staticmethod
-    def action_present(count):
+    def action_present_deploy(count):
         return ungettext_lazy(
             u"Deploy Environment",
             u"Deploy Environments",
@@ -218,12 +245,33 @@ class DeployEnvironment(tables.BatchAction):
         )
 
     @staticmethod
-    def action_past(count):
+    def action_past_deploy(count):
         return ungettext_lazy(
-            u"Deployed Environment",
+            u"Started deploying Environment",
+            u"Started deploying Environments",
+            count
+        )
+
+    @staticmethod
+    def action_present_update(count):
+        return ungettext_lazy(
+            u"Update Environment",
+            # there can be cases when some of the envs are new and some are not
+            # so it is better to just leave "Deploy" for multiple envs
+            u"Deploy Environments",
+            count
+        )
+
+    @staticmethod
+    def action_past_update(count):
+        return ungettext_lazy(
+            u"Updated Environment",
             u"Deployed Environments",
             count
         )
+
+    action_present = action_present_deploy
+    action_past = action_past_deploy
 
     def allowed(self, request, environment):
         """Limit when 'Deploy Environment' button is shown
@@ -233,7 +281,22 @@ class DeployEnvironment(tables.BatchAction):
         * delete is in progress
         * no new services added to the environment (after env creation
           or successful deploy or delete failure)
+        If environment has already deployed services,
+        button is shown as 'Update environment'
         """
+
+        # table action case: action allowed if any row action allowed
+        if not environment:
+            return _check_row_actions_allowed(self, request)
+
+        # row action case
+        if _environment_has_deployed_services(request, environment.id):
+            self.action_present = self.action_present_update
+            self.action_past = self.action_past_update
+        else:
+            self.action_present = self.action_present_deploy
+            self.action_past = self.action_past_deploy
+
         status = getattr(environment, 'status', None)
         if (status != consts.STATUS_ID_DEPLOY_FAILURE and
                 not environment.has_new_services):
@@ -257,16 +320,25 @@ class DeployThisEnvironment(tables.Action):
     verbose_name = _('Deploy This Environment')
     requires_input = False
     classes = ('btn-launch',)
+    icon = "play"
 
     def allowed(self, request, service):
-        """Limit when 'Deploy Environment' button is shown
+        """Limit when 'Deploy This Environment' button is shown
 
         'Deploy environment' is not shown in several cases:
         * when deploy is already in progress
         * delete is in progress
         * env was just created and no apps added
         * previous deployment finished successfully
+        If environment has already deployed services, button is shown
+        as 'Update This Environment'
         """
+        environment_id = self.table.kwargs['environment_id']
+        if _environment_has_deployed_services(request, environment_id):
+            self.verbose_name = _('Update This Environment')
+        else:
+            self.verbose_name = _('Deploy This Environment')
+
         status, version = _get_environment_status_and_version(request,
                                                               self.table)
         if (status in consts.NO_ACTION_ALLOWED_STATUSES or
@@ -329,6 +401,10 @@ class UpdateServiceRow(tables.Row):
 class UpdateName(tables.UpdateAction):
     def update_cell(self, request, datum, obj_id, cell_name, new_cell_value):
         try:
+            if not new_cell_value or new_cell_value.isspace():
+                message = _("The environment name field cannot be empty.")
+                messages.warning(request, message)
+                raise ValueError(message)
             mc = api_utils.muranoclient(request)
             mc.environments.update(datum.id, name=new_cell_value)
         except exc.HTTPConflict:
@@ -354,7 +430,7 @@ class EnvironmentsTable(tables.DataTable):
     name = tables.Column('name',
                          link='horizon:murano:environments:services',
                          verbose_name=_('Name'),
-                         form_field=forms.CharField(),
+                         form_field=forms.CharField(required=False),
                          update_action=UpdateName,
                          truncate=40)
 
@@ -371,10 +447,10 @@ class EnvironmentsTable(tables.DataTable):
         row_class = UpdateEnvironmentRow
         status_columns = ['status']
         no_data_message = _('NO ENVIRONMENTS')
-        table_actions = (CreateEnvironment,)
+        table_actions = (CreateEnvironment, DeployEnvironment,
+                         DeleteEnvironment, AbandonEnvironment)
         row_actions = (ShowEnvironmentServices, DeployEnvironment,
                        DeleteEnvironment, AbandonEnvironment)
-        multi_select = False
 
 
 def get_service_details_link(service):
@@ -415,7 +491,7 @@ class ServicesTable(tables.DataTable):
             packages, self._more = pkg_api.package_list(
                 self.request,
                 filters={'type': 'Application', 'catalog': True})
-        return json.dumps([package.to_dict() for package in packages])
+        return [package.to_dict() for package in packages]
 
     def actions_allowed(self):
         status, version = _get_environment_status_and_version(

@@ -20,6 +20,7 @@ from django.core.urlresolvers import reverse_lazy
 from django import http
 from django.utils.translation import ugettext_lazy as _
 from django.views import generic
+from horizon import conf
 from horizon import exceptions
 from horizon.forms import views
 from horizon import tables
@@ -75,6 +76,20 @@ class EnvironmentDetails(tabs.TabbedTableView):
             exceptions.handle(self.request, msg, redirect=redirect)
         context['tenant_id'] = self.request.session['token'].tenant['id']
         context["url"] = self.get_redirect_url()
+        table = env_tables.EnvironmentsTable(self.request)
+        # record the origin row_action for EnvironmentsTable Meta
+        ori_row_actions = table._meta.row_actions
+        # remove the duplicate 'Manage Components' and 'DeployEnvironment'
+        # actions that have already in Environment Details page
+        # from table.render_row_actions, so the action render to the detail
+        # page will exclude those two actions.
+        table._meta.row_actions = filter(
+            lambda x: x.name not in ('show', 'deploy'),
+            table._meta.row_actions)
+        context["actions"] = table.render_row_actions(env)
+        # recover the origin row_action for EnvironmentsTable Meta
+        table._meta.row_actions = ori_row_actions
+        context['poll_interval'] = conf.HORIZON_CONFIG['ajax_poll_interval']
         return context
 
     def get_tabs(self, request, *args, **kwargs):
@@ -115,7 +130,6 @@ class DetailServiceView(tabs.TabbedTableView):
         env = api.environment_get(self.request, self.environment_id)
         context["environment_name"] = env.name
         breadcrumb = [
-            (_("Environments"), EnvironmentDetails.get_redirect_url()),
             (context["environment_name"],
              reverse("horizon:murano:environments:services",
                      args=[self.environment_id])),
@@ -190,7 +204,6 @@ class DeploymentDetailsView(tabs.TabbedTableView):
                                      self.environment_id,
                                      self.deployment_id)
         breadcrumb = [
-            (_("Environments"), EnvironmentDetails.get_redirect_url()),
             (context["environment_name"],
              reverse("horizon:murano:environments:services",
                      args=[self.environment_id])),

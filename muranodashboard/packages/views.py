@@ -14,7 +14,6 @@
 
 import json
 import sys
-import urlparse
 
 from django.core.files import storage
 from django.core.urlresolvers import reverse
@@ -39,6 +38,7 @@ from openstack_dashboard.api import glance
 from openstack_dashboard.api import keystone
 from oslo_log import log as logging
 import six
+import six.moves.urllib.parse as urlparse
 
 from muranodashboard import api
 from muranodashboard.api import packages as pkg_api
@@ -162,9 +162,10 @@ class PackageDefinitionsView(horizon_tables.DataTableView):
         return filters
 
 
-class ImportBundleWizard(views.ModalFormMixin,
+class ImportBundleWizard(horizon_views.PageTitleMixin, views.ModalFormMixin,
                          wizard_views.SessionWizardView):
     template_name = 'packages/import_bundle.html'
+    page_title = _("Import Bundle")
 
     def get_context_data(self, **kwargs):
         context = super(ImportBundleWizard, self).get_context_data(**kwargs)
@@ -300,11 +301,12 @@ class ImportBundleWizard(views.ModalFormMixin,
         return http.HttpResponseRedirect(redirect)
 
 
-class ImportPackageWizard(views.ModalFormMixin,
+class ImportPackageWizard(horizon_views.PageTitleMixin, views.ModalFormMixin,
                           wizard_views.SessionWizardView):
     file_storage = storage.FileSystemStorage(location=consts.CACHE_DIR)
     template_name = 'packages/upload.html'
     condition_dict = {'add_category': is_app}
+    page_title = _("Import Package")
 
     def get_form_initial(self, step):
         initial_dict = self.initial_dict.get(step, {})
@@ -553,6 +555,7 @@ class ModifyPackageView(views.ModalFormView):
     template_name = 'packages/modify_package.html'
     success_url = reverse_lazy('horizon:murano:packages:index')
     failure_url = reverse_lazy('horizon:murano:packages:index')
+    page_title = _("Modify Package")
 
     def get_initial(self):
         app_id = self.kwargs['app_id']
@@ -565,6 +568,7 @@ class ModifyPackageView(views.ModalFormView):
     def get_context_data(self, **kwargs):
         context = super(ModifyPackageView, self).get_context_data(**kwargs)
         context['app_id'] = self.kwargs['app_id']
+        context['type'] = kwargs['form'].initial['package'].type
         return context
 
 
@@ -588,3 +592,21 @@ class DetailView(horizon_views.HorizonTemplateView):
                               _('Unable to retrieve package details.'),
                               redirect=reverse(INDEX_URL))
         return app
+
+
+def download_packge(request, app_name, app_id):
+    try:
+        body = api.muranoclient(request).packages.download(app_id)
+
+        content_type = 'application/octet-stream'
+        response = http.HttpResponse(body, content_type=content_type)
+        response['Content-Disposition'] = 'filename={name}.zip'.format(
+            name=app_name)
+
+        return response
+    except exc.HTTPException:
+        LOG.exception(_('Something went wrong during package downloading'))
+        redirect = reverse('horizon:murano:packages:index')
+        exceptions.handle(request,
+                          _('Unable to download package.'),
+                          redirect=redirect)

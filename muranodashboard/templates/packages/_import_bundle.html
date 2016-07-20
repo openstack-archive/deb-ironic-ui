@@ -28,7 +28,7 @@
         <div class='description-by_name'>
             <h3>{% trans "Description" %}:</h3>
             <p><strong>{% trans "Bundle Name" %}: </strong>{% trans "Bundle's full name."%}</p>
-            <p>{% blocktrans %}The bundle is going to be installed from <a href="{{murano_repo_url}}" target="_blank">{{murano_repo_url}}</a> repository.{% endblocktrans %}</p>
+            <p>{% blocktrans trimmed %}The bundle is going to be installed from <a href="{{murano_repo_url}}" target="_blank">{{murano_repo_url}}</a> repository.{% endblocktrans %}</p>
         </div>
         <div class='description-by_url'>
             <h3>{% trans "Description" %}:</h3>
@@ -43,10 +43,10 @@
 {% endblock %}
 
 {% block modal-footer %}
+    <a href='{% url 'horizon:murano:packages:index' %}' class='btn btn-default cancel'>{% trans 'Cancel' %}</a>
     {% if wizard.steps.next %}
-        <input type='submit' class='btn btn-primary pull-right'  value='{% trans 'Next' %}'/>
+        <input type='submit' class='btn btn-primary'  value='{% trans 'Next' %}'/>
     {% else %}
-        <input type='submit' class='btn btn-primary pull-right'  value='{% trans 'Create' %}'/>
+        <input type='submit' class='btn btn-primary'  value='{% trans 'Create' %}'/>
     {% endif %}
-    <a href='{% url 'horizon:murano:packages:index' %}' class='btn btn-default secondary cancel close'>{% trans 'Cancel' %}</a>
 {% endblock %}

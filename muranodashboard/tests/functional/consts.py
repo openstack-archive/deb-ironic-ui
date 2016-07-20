@@ -17,6 +17,7 @@ DeleteImageMeta = TestImage + "//td//button[contains(text(), 'Delete Metadata')]
 ImageMeta = "//dl[dt[contains(text(), 'murano_image_info')]]/dd"
 More = "//tr[contains(@id, '{0}__row__{1}')]//a[contains(@class, dropdown-toggle) and @href='#']"  # noqa
 Status = "//td[contains(text(), '{0}')]"
+EnvStatus = "//tr[contains(@data-display, '{0}')]/td[contains(text(), '{1}')]"
 CellStatus = "//td[contains(@class, 'status_{0}')]"
 Row = "//tr[contains(@id, 'services__row__{0}')]"
 ErrorMessage = '//span[contains(@class, "help-block") and contains(text(), "{0}")]'  # noqa
@@ -31,10 +32,15 @@ HotFlavorField = '//div[contains(@class, "has-error")]//input'
 ButtonSubmit = ".//*[@name='wizard_goto_step'][2]"
 InputSubmit = "//input[@type='submit']"
 ConfirmDeletion = "//div[@class='modal-footer']//a[contains(text(), 'Delete')]"  # noqa
+ConfirmAbandon = "//div[@class='modal-footer']//a[contains(text(), 'Abandon')]"  # noqa
 UploadPackage = 'packages__action_upload_package'
 ImportBundle = 'packages__action_import_bundle'
 CreateEnvironment = ".add_env .btn"
 DeployEnvironment = "services__action_deploy_env"
+DeleteEnvironment = "//button[contains(@id, 'action_delete')]"
+DeployEnvironments = ".btn#environments__action_deploy"
+DeleteEnvironments = ".btn#environments__action_delete"
+AbandonEnvironments = ".btn#environments__action_abandon"
 ConfirmCreateEnvironment = 'confirm_create_env'
 AddComponent = "services__action_AddApplication"
 AddCategory = "categories__action_add_category"
@@ -44,6 +50,6 @@ PrevBtn = "//tfoot//tr//td//a[contains(@href,'prev_marker')]"
 
 # Panel's
 
-Murano = "//*[@id='main_content']/div[2]//a[contains(text(), 'Murano')]"
-Application_Catalog = Murano + "/following::a[span[contains(text(), 'Application Catalog')]]"  # noqa
-Manage = Murano + "/following::a[span[contains(text(), 'Manage')]]"
+Applications = "//*[@id='main_content']/div[2]//a[contains(text(), 'Applications')]"  # noqa
+Catalog = Applications + "/following::a[span[contains(text(), 'Catalog')]]"
+Manage = Applications + "/following::a[span[contains(text(), 'Manage')]]"
