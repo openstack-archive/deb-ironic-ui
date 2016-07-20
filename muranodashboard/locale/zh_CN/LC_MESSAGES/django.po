@@ -259,10 +259,6 @@ msgstr "部署已经开始"
 msgid "Deployed Components"
 msgstr "已部署的组件"
 
-msgid "Deployed Environment"
-msgid_plural "Deployed Environments"
-msgstr[0] "部署的环境变量"
-
 msgid "Deployment Details"
 msgstr "部署详情"
 
@@ -707,14 +703,6 @@ msgstr "指定的名称已被使用，请更换"
 
 msgid "Specifying a category helps to filter applications in the catalog"
 msgstr "指定一个分类有助于在目录中进行过滤"
-
-msgid "Start Deleting Component"
-msgid_plural "Start Deleting Components"
-msgstr[0] "开始删除组件"
-
-msgid "Start Deleting Environment"
-msgid_plural "Start Deleting Environments"
-msgstr[0] "开始删除变量"
 
 msgid "Status"
 msgstr "状态"

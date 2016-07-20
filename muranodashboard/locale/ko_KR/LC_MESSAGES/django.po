@@ -17,9 +17,6 @@ msgstr ""
 msgid "-"
 msgstr "-"
 
-msgid "80 characters max."
-msgstr "최대 80 문자."
-
 msgid "A local zip file to upload"
 msgstr "업로드할 로컬 zip 파일"
 
@@ -652,9 +649,6 @@ msgstr "패키지 URL 제공"
 
 msgid "Previous Page"
 msgstr "이전 페이지"
-
-msgid "Provide comma-separated list of words, associated with the package"
-msgstr "패키지와 관련된 콤마로 구분된 단어 목록을 제공합니다"
 
 msgid "Provide desired name for a new category"
 msgstr "새 카테고리의 원하는 이름 제공"

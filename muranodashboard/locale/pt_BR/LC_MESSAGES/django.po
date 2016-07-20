@@ -17,9 +17,6 @@ msgstr ""
 msgid "-"
 msgstr "- "
 
-msgid "80 characters max."
-msgstr "Máx. 80 caracteres"
-
 msgid "A local zip file to upload"
 msgstr "Um arquivo zip local para enviar"
 
@@ -676,10 +673,6 @@ msgstr "Por favor forneça uma url para o pacote"
 
 msgid "Previous Page"
 msgstr "Página Anterior"
-
-msgid "Provide comma-separated list of words, associated with the package"
-msgstr ""
-"Forneça lista de palavras separado por vírgulas, associado com o pacote"
 
 msgid "Provide desired name for a new category"
 msgstr "Forneça o nome desejado para uma nova categoria"
