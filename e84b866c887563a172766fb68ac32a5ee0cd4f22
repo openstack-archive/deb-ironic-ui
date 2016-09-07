@@ -1,0 +1,10 @@
+Code-Review+1: Jim Rollenhagen <jim@jimrollenhagen.com>
+Code-Review+1: Julia Kreger <juliaashleykreger@gmail.com>
+Code-Review+2: Michael Krotscheck <krotscheck@gmail.com>
+Workflow+1: Michael Krotscheck <krotscheck@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 28 Mar 2016 18:07:54 +0000
+Reviewed-on: https://review.openstack.org/296973
+Project: openstack/deb-ironic-ui
+Branch: refs/heads/stable/mitaka
