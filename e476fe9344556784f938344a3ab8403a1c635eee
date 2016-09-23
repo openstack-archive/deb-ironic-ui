@@ -1,0 +1,9 @@
+Code-Review+2: Beth Elwell <e.r.elwell@gmail.com>
+Code-Review+2: Peter Piela <ppiela@cray.com>
+Workflow+1: Beth Elwell <e.r.elwell@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 22 Sep 2016 15:39:29 +0000
+Reviewed-on: https://review.openstack.org/361098
+Project: openstack/deb-ironic-ui
+Branch: refs/heads/master
