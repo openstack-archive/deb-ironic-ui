@@ -1,5 +1,6 @@
 [gerrit]
 host=review.openstack.org
 port=29418
-project=openstack/ironic-ui.git
+project=openstack/deb-ironic-ui.git
 defaultbranch=stable/mitaka
+defaultbranch=debian/newton
