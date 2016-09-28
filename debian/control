@@ -10,15 +10,25 @@ Build-Depends: debhelper (>= 9),
                python-pbr (>= 1.8),
                python-setuptools,
                python-sphinx,
-Build-Depends-Indep: openstack-dashboard (>= 2:9.0.0~rc1),
+Build-Depends-Indep: openstack-dashboard (>= 3:10.0.0~rc2),
+                     python-coverage,
+                     python-django-nose (>= 1.2),
+                     python-hacking,
+                     python-oslosphinx (>= 2.5.0),
+                     python-oslotest (>= 1:1.10.0),
+                     python-subunit,
+                     python-testscenarios,
+                     python-testtools (>= 1.4.0),
+                     subunit,
+                     testrepository,
 Standards-Version: 3.9.8
-Vcs-Git: https://anonscm.debian.org/git/openstack/ironic-ui.git
-Vcs-Browser: https://anonscm.debian.org/gitweb/?p=openstack/ironic-ui.git;a=summary
+Vcs-Browser: https://git.openstack.org/cgit/openstack/deb-ironic-ui?h=debian%2Fnewton
+Vcs-Git: https://git.openstack.org/openstack/deb-ironic-ui -b debian/newton
 Homepage: https://github.com/openstack/ironic-ui
 
 Package: python-ironic-ui
 Architecture: all
-Depends: openstack-dashboard (>= 2:9.0.0~rc1),
+Depends: openstack-dashboard (>= 3:10.0.0~rc2),
          python-pbr (>= 1.8),
          python-six (>= 1.7.0),
          ${misc:Depends},
