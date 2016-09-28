@@ -22,16 +22,22 @@
       .controller('IronicNodeListController', IronicNodeListController);
 
   IronicNodeListController.$inject = [
+    '$rootScope',
     'horizon.app.core.openstack-service-api.ironic',
+    'horizon.dashboard.admin.ironic.events',
     'horizon.dashboard.admin.ironic.actions',
     'horizon.dashboard.admin.basePath',
-    'horizon.dashboard.admin.ironic.maintenance.service'
+    'horizon.dashboard.admin.ironic.maintenance.service',
+    'horizon.dashboard.admin.ironic.enroll-node.service'
   ];
 
-  function IronicNodeListController(ironic,
+  function IronicNodeListController($rootScope,
+                                    ironic,
+                                    ironicEvents,
                                     actions,
                                     basePath,
-                                    maintenanceService) {
+                                    maintenanceService,
+                                    enrollNodeService) {
     var ctrl = this;
 
     ctrl.nodes = [];
@@ -43,6 +49,7 @@
     ctrl.putNodesInMaintenanceMode = putNodesInMaintenanceMode;
     ctrl.removeNodeFromMaintenanceMode = removeNodeFromMaintenanceMode;
     ctrl.removeNodesFromMaintenanceMode = removeNodesFromMaintenanceMode;
+    ctrl.enrollNode = enrollNode;
 
     /**
      * Filtering - client-side MagicSearch
@@ -80,6 +87,23 @@
         singleton: true
       }
     ];
+
+    // Listen for the creation of new nodes, and update the node list
+    $rootScope.$on(ironicEvents.ENROLL_NODE_SUCCESS, function() {
+      init();
+    });
+
+    $rootScope.$on(ironicEvents.DELETE_NODE_SUCCESS, function() {
+      init();
+    });
+
+    $rootScope.$on(ironicEvents.CREATE_PORT_SUCCESS, function() {
+      init();
+    });
+
+    $rootScope.$on(ironicEvents.DELETE_PORT_SUCCESS, function() {
+      init();
+    });
 
     init();
 
@@ -123,6 +147,10 @@
 
     function removeNodesFromMaintenanceMode(nodes) {
       maintenanceService.removeNodesFromMaintenanceMode(nodes);
+    }
+
+    function enrollNode() {
+      enrollNodeService.modal();
     }
   }
 
