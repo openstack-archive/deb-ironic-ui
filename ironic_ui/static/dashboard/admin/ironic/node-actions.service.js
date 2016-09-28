@@ -20,6 +20,34 @@
   var POWER_STATE_ON = 'power on';
   var POWER_STATE_OFF = 'power off';
 
+  var DELETE_NODE_TITLE = gettext("Delete Node");
+  var DELETE_NODE_MSG =
+      gettext('Are you sure you want to delete node "%s"? ' +
+              'This action cannot be undone.');
+  var DELETE_NODE_SUCCESS = gettext('Successfully deleted node "%s"');
+  var DELETE_NODE_ERROR = gettext('Unable to delete node "%s"');
+
+  var DELETE_NODES_TITLE = gettext("Delete Nodes");
+  var DELETE_NODES_MSG =
+      gettext('Are you sure you want to delete nodes "%s"? ' +
+              'This action cannot be undone.');
+  var DELETE_NODES_SUCCESS = gettext('Successfully deleted nodes "%s"');
+  var DELETE_NODES_ERROR = gettext('Error deleting nodes "%s"');
+
+  var DELETE_PORT_TITLE = gettext("Delete Port");
+  var DELETE_PORT_MSG =
+      gettext('Are you sure you want to delete port "%s"? ' +
+              'This action cannot be undone.');
+  var DELETE_PORT_SUCCESS = gettext('Successfully deleted port "%s"');
+  var DELETE_PORT_ERROR = gettext('Unable to delete port "%s"');
+
+  var DELETE_PORTS_TITLE = gettext("Delete Ports");
+  var DELETE_PORTS_MSG =
+      gettext('Are you sure you want to delete ports "%s"? ' +
+              'This action cannot be undone.');
+  var DELETE_PORTS_SUCCESS = gettext('Successfully deleted ports "%s"');
+  var DELETE_PORTS_ERROR = gettext('Error deleting ports "%s"');
+
   angular
     .module('horizon.dashboard.admin.ironic')
     .factory('horizon.dashboard.admin.ironic.actions', actions);
@@ -27,11 +55,26 @@
   actions.$inject = [
     'horizon.app.core.openstack-service-api.ironic',
     'horizon.framework.widgets.toast.service',
-    '$q'
+    'horizon.dashboard.admin.ironic.events',
+    'horizon.framework.widgets.modal.deleteModalService',
+    'horizon.dashboard.admin.ironic.create-port.service',
+    '$q',
+    '$rootScope'
   ];
 
-  function actions(ironic, toastService, $q) {
+  function actions(ironic,
+                   toastService,
+                   ironicEvents,
+                   deleteModalService,
+                   createPortService,
+                   $q,
+                   $rootScope) {
     var service = {
+      createPort: createPort,
+      deleteNode: deleteNode,
+      deleteNodes: deleteNodes,
+      deletePort: deletePort,
+      deletePorts: deletePorts,
       powerOn: powerOn,
       powerOff: powerOff,
       powerOnAll: powerOnNodes,
@@ -44,33 +87,62 @@
 
     return service;
 
+    function deleteNode(node) {
+      var labels = {
+        title: DELETE_NODE_TITLE,
+        message: DELETE_NODE_MSG,
+        submit: DELETE_NODE_TITLE,
+        success: DELETE_NODE_SUCCESS,
+        error: DELETE_NODE_ERROR
+      };
+      var context = {
+        labels: labels,
+        deleteEntity: ironic.deleteNode,
+        successEvent: ironicEvents.DELETE_NODE_SUCCESS
+      };
+      return deleteModalService.open($rootScope, [node], context);
+    }
+
+    function deleteNodes(nodes) {
+      var labels = {
+        title: DELETE_NODES_TITLE,
+        message: DELETE_NODES_MSG,
+        submit: DELETE_NODES_TITLE,
+        success: DELETE_NODES_SUCCESS,
+        error: DELETE_NODES_ERROR
+      };
+      var context = {
+        labels: labels,
+        deleteEntity: ironic.deleteNode,
+        successEvent: ironicEvents.DELETE_NODE_SUCCESS
+      };
+      return deleteModalService.open($rootScope, nodes, context);
+    }
+
     // power state
 
     function powerOn(node) {
       if (node.power_state !== POWER_STATE_OFF) {
-        return $q.reject(gettext("Node is not powered off."));
+        var msg = gettext("Node %s is not powered off.");
+        return $q.reject(interpolate(msg, [node], false));
       }
       return ironic.powerOnNode(node.uuid).then(
         function() {
           // Set power state to be indeterminate
           node.power_state = null;
-        },
-        function(reason) {
-          toastService.add('error', reason);
-        });
+        }
+      );
     }
 
     function powerOff(node) {
       if (node.power_state !== POWER_STATE_ON) {
-        return $q.reject(gettext("Node is not powered on."));
+        var msg = gettext("Node %s is not powered on.");
+        return $q.reject(interpolate(msg, [node], false));
       }
       return ironic.powerOffNode(node.uuid).then(
         function() {
           // Set power state to be indeterminate
           node.power_state = null;
-        },
-        function(reason) {
-          toastService.add('error', reason);
         }
       );
     }
@@ -87,30 +159,26 @@
 
     function putInMaintenanceMode(node, maintReason) {
       if (node.maintenance !== false) {
-        return $q.reject(gettext("Node is already in maintenance mode."));
+        var msg = gettext("Node %s is already in maintenance mode.");
+        return $q.reject(interpolate(msg, [node], false));
       }
       return ironic.putNodeInMaintenanceMode(node.uuid, maintReason).then(
         function () {
           node.maintenance = true;
           node.maintenance_reason = maintReason;
-        },
-        function(reason) {
-          toastService.add('error', reason);
         }
       );
     }
 
     function removeFromMaintenanceMode(node) {
       if (node.maintenance !== true) {
-        return $q.reject(gettext("Node is not in maintenance mode."));
+        var msg = gettext("Node %s is not in maintenance mode.");
+        return $q.reject(interpolate(msg, [node], false));
       }
       return ironic.removeNodeFromMaintenanceMode(node.uuid).then(
         function () {
           node.maintenance = false;
           node.maintenance_reason = "";
-        },
-        function (reason) {
-          toastService.add('error', reason);
         }
       );
     }
@@ -121,6 +189,42 @@
 
     function removeNodesFromMaintenanceMode(nodes) {
       return applyFuncToNodes(removeFromMaintenanceMode, nodes);
+    }
+
+    function createPort(node) {
+      return createPortService.modal(node);
+    }
+
+    function deletePort(port) {
+      var labels = {
+        title: DELETE_PORT_TITLE,
+        message: DELETE_PORT_MSG,
+        submit: DELETE_PORT_TITLE,
+        success: DELETE_PORT_SUCCESS,
+        error: DELETE_PORT_ERROR
+      };
+      var context = {
+        labels: labels,
+        deleteEntity: ironic.deletePort,
+        successEvent: ironicEvents.DELETE_PORT_SUCCESS
+      };
+      return deleteModalService.open($rootScope, [port], context);
+    }
+
+    function deletePorts(ports) {
+      var labels = {
+        title: DELETE_PORTS_TITLE,
+        message: DELETE_PORTS_MSG,
+        submit: DELETE_PORTS_TITLE,
+        success: DELETE_PORTS_SUCCESS,
+        error: DELETE_PORTS_ERROR
+      };
+      var context = {
+        labels: labels,
+        deleteEntity: ironic.deletePort,
+        successEvent: ironicEvents.DELETE_PORT_SUCCESS
+      };
+      return deleteModalService.open($rootScope, ports, context);
     }
 
     /*
