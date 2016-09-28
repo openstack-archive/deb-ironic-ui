@@ -1,0 +1,297 @@
+# Andreas Jaeger <jaegerandi@gmail.com>, 2016. #zanata
+# Shu Muto <shu-mutou@rf.jp.nec.com>, 2016. #zanata
+# Yoshiki Eguchi <yoshiki.eguchi@gmail.com>, 2016. #zanata
+msgid ""
+msgstr ""
+"Project-Id-Version: ironic-ui 1.1.1.dev33\n"
+"Report-Msgid-Bugs-To: https://bugs.launchpad.net/openstack-i18n/\n"
+"POT-Creation-Date: 2016-08-15 22:06+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"PO-Revision-Date: 2016-08-06 02:49+0000\n"
+"Last-Translator: Yoshiki Eguchi <yoshiki.eguchi@gmail.com>\n"
+"Language-Team: Japanese\n"
+"Language: ja\n"
+"X-Generator: Zanata 3.7.3\n"
+"Plural-Forms: nplurals=1; plural=0\n"
+
+msgid "A unique node name. Optional."
+msgstr "一意のノード名。オプション。"
+
+msgid "Actions"
+msgstr "アクション"
+
+msgid "Add New Property:"
+msgstr "新しいプロパティーの追加:"
+
+#, python-format
+msgid ""
+"Are you sure you want to delete node \"%s\"? This action cannot be undone."
+msgstr "ノード「%s」 を削除してよろしいですか?この操作は取り消せません。"
+
+#, python-format
+msgid ""
+"Are you sure you want to delete nodes \"%s\"? This action cannot be undone."
+msgstr "ノード「%s」 を削除してよろしいですか?この操作は取り消せません。"
+
+msgid "Cancel"
+msgstr "取り消し"
+
+msgid "Capabilities"
+msgstr "機能"
+
+msgid "Chassis ID"
+msgstr "シャーシ ID"
+
+msgid "Choose an Image"
+msgstr "イメージの選択"
+
+msgid "Configuration"
+msgstr "設定"
+
+msgid "Console Enabled"
+msgstr "コンソールの有効化"
+
+msgid "Created At"
+msgstr "作成時刻"
+
+msgid "Delete Node"
+msgstr "ノードの削除"
+
+msgid "Delete Nodes"
+msgstr "ノードの削除"
+
+msgid "Delete node"
+msgstr "ノードの削除"
+
+msgid "Delete nodes"
+msgstr "ノードの削除"
+
+msgid "Deploy Kernel"
+msgstr "カーネルのデプロイ"
+
+msgid "Deploy Ramdisk"
+msgstr "RAM ディスクのデプロイ"
+
+msgid "Driver"
+msgstr "ドライバー"
+
+msgid "Driver Details"
+msgstr "ドライバー詳細"
+
+msgid "Driver Info"
+msgstr "ドライバー情報"
+
+msgid "Enroll Node"
+msgstr "ノードの登録"
+
+#, python-format
+msgid "Error deleting nodes \"%s\""
+msgstr "ノード「%s」の削除中にエラーが発生しました"
+
+msgid "Extra"
+msgstr "拡張"
+
+msgid "General"
+msgstr "一般"
+
+msgid "Inspection Finished At"
+msgstr "検査終了時刻"
+
+msgid "Inspection Started At"
+msgstr "検査開始時刻"
+
+msgid "Instance ID"
+msgstr "インスタンス ID"
+
+msgid "Instance Info"
+msgstr "インスタンス情報"
+
+msgid "Instance Name"
+msgstr "インスタンス名"
+
+msgid "Kernel"
+msgstr "カーネル"
+
+msgid "Last Error"
+msgstr "最後のエラー"
+
+msgid "Maintenance"
+msgstr "メンテナンス"
+
+msgid "Maintenance Reason"
+msgstr "メンテナンスの理由"
+
+msgid "Maintenance off"
+msgstr "メンテナンスオフ"
+
+msgid "Maintenance on"
+msgstr "メンテナンスオン"
+
+msgid "Name"
+msgstr "名前"
+
+msgid "No Instance"
+msgstr "インスタンスなし"
+
+msgid "No maintenance reason given."
+msgstr "メンテナンスの理由がありません。"
+
+#, python-format
+msgid "Node %s is already in maintenance mode."
+msgstr "ノード %s は既にメンテナンスモードです。"
+
+#, python-format
+msgid "Node %s is not in maintenance mode."
+msgstr "ノード %s はメンテナンスモードになっていません。"
+
+#, python-format
+msgid "Node %s is not powered off."
+msgstr "ノード %s の電源がオフになっていません。"
+
+#, python-format
+msgid "Node %s is not powered on."
+msgstr "ノード %s の電源がオンになっていません。"
+
+msgid "Node Driver"
+msgstr "ノードドライバー"
+
+msgid "Node ID"
+msgstr "ノード ID"
+
+msgid "Node Info"
+msgstr "ノード情報"
+
+msgid "Node Name"
+msgstr "ノード名"
+
+msgid "Overview"
+msgstr "概要"
+
+msgid "Ports"
+msgstr "ポート"
+
+msgid "Power State"
+msgstr "電源状態"
+
+msgid "Power off"
+msgstr "電源オフ"
+
+msgid "Power on"
+msgstr "電源オン"
+
+msgid "Properties"
+msgstr "プロパティー"
+
+msgid "Property Name"
+msgstr "プロパティ名"
+
+msgid ""
+"Provide a reason for why you are putting the selected node(s) into "
+"maintenance mode (optional)"
+msgstr ""
+"選択したノードをメンテナンスモードにする理由を設定してください（オプション）"
+
+msgid "Provision State"
+msgstr "プロビジョニング状態"
+
+msgid "Provisioning State"
+msgstr "プロビジョニング状態"
+
+msgid "Provisioning Status"
+msgstr "プロビジョニング状態"
+
+msgid "Put Node(s) Into Maintenance Mode"
+msgstr "ノードをメンテナンスモードにします"
+
+msgid "Ramdisk"
+msgstr "RAM ディスク"
+
+msgid "Refresh page to see updated power status"
+msgstr "電源状態を更新するにはページをリフレッシュしてください"
+
+msgid "Required"
+msgstr "必須"
+
+msgid "Reservation"
+msgstr "予約"
+
+msgid "SSH Port"
+msgstr "SSH ポート"
+
+msgid "SSH Username"
+msgstr "SSH ユーザー名"
+
+msgid "Select a Driver"
+msgstr "ドライバーを選択してください"
+
+#, python-format
+msgid "Successfully deleted node \"%s\""
+msgstr "ノード「%s」を正常に削除しました"
+
+#, python-format
+msgid "Successfully deleted nodes \"%s\""
+msgstr "ノード「%s」を正常に削除しました"
+
+msgid "Target Power State"
+msgstr "ターゲット電源状態"
+
+msgid "Target Provision State"
+msgstr "ターゲットプロビジョニング状態"
+
+msgid "UUID"
+msgstr "UUID"
+
+#, python-format
+msgid "Unable to create node: %s"
+msgstr "ノードを作成できません: %s"
+
+#, python-format
+msgid "Unable to delete node \"%s\""
+msgstr "ノード 「%s」を削除できません"
+
+#, python-format
+msgid "Unable to delete node %s: %s"
+msgstr "ノード  %s を削除できません: %s"
+
+#, python-format
+msgid "Unable to power off the node: %s"
+msgstr "ノードを電源OFFにできません: %s"
+
+#, python-format
+msgid "Unable to power on the node: %s"
+msgstr "ノードを電源オンにできません: %s"
+
+#, python-format
+msgid "Unable to put the Ironic node in maintenance mode: %s"
+msgstr "Ironic ノードをメンテナンスモードにできません: %s"
+
+#, python-format
+msgid "Unable to remove the Ironic node from maintenance mode: %s"
+msgstr "Ironic ノードをメンテナンスモードから削除できません: %s"
+
+#, python-format
+msgid "Unable to retrieve Ironic drivers: %s"
+msgstr "Ironic ドライバーの一覧を取得できません: %s"
+
+msgid "Unable to retrieve Ironic nodes."
+msgstr "Ironic ノードの一覧を取得できません"
+
+#, python-format
+msgid "Unable to retrieve driver properties: %s"
+msgstr "ドライバープロパティーの一覧を取得できません: %s"
+
+#, python-format
+msgid "Unable to retrieve the Ironic node ports: %s"
+msgstr "Ironic ノードのポート一覧を取得できません: %s"
+
+#, python-format
+msgid "Unable to retrieve the Ironic node: %s"
+msgstr "Ironic ノードを取得できません: %s"
+
+msgid "Updated At"
+msgstr "最終更新"
+
+msgid "{$ property.getDescription() $}"
+msgstr "{$ property.getDescription() $}"
