@@ -1,0 +1,10 @@
+Code-Review+1: Kyrylo Romanenko <kromanenko@mirantis.com>
+Workflow+1: Beth Elwell <e.r.elwell@gmail.com>
+Code-Review+2: Jim Rollenhagen <jim@jimrollenhagen.com>
+Workflow+1: Jim Rollenhagen <jim@jimrollenhagen.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 28 Sep 2016 22:54:45 +0000
+Reviewed-on: https://review.openstack.org/378668
+Project: openstack/deb-ironic-ui
+Branch: refs/heads/master
