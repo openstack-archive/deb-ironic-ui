@@ -22,26 +22,34 @@
       .controller('IronicNodeListController', IronicNodeListController);
 
   IronicNodeListController.$inject = [
+    '$scope',
     '$rootScope',
+    '$q',
+    'horizon.framework.widgets.toast.service',
     'horizon.app.core.openstack-service-api.ironic',
     'horizon.dashboard.admin.ironic.events',
     'horizon.dashboard.admin.ironic.actions',
     'horizon.dashboard.admin.basePath',
     'horizon.dashboard.admin.ironic.maintenance.service',
-    'horizon.dashboard.admin.ironic.enroll-node.service'
+    'horizon.dashboard.admin.ironic.enroll-node.service',
+    'horizon.dashboard.admin.ironic.edit-node.service'
   ];
 
-  function IronicNodeListController($rootScope,
+  function IronicNodeListController($scope,
+                                    $rootScope,
+                                    $q,
+                                    toastService,
                                     ironic,
                                     ironicEvents,
                                     actions,
                                     basePath,
                                     maintenanceService,
-                                    enrollNodeService) {
+                                    enrollNodeService,
+                                    editNodeService) {
     var ctrl = this;
 
     ctrl.nodes = [];
-    ctrl.nodeSrc = [];
+    ctrl.nodesSrc = [];
     ctrl.basePath = basePath;
     ctrl.actions = actions;
 
@@ -50,6 +58,8 @@
     ctrl.removeNodeFromMaintenanceMode = removeNodeFromMaintenanceMode;
     ctrl.removeNodesFromMaintenanceMode = removeNodesFromMaintenanceMode;
     ctrl.enrollNode = enrollNode;
+    ctrl.editNode = editNode;
+    ctrl.refresh = refresh;
 
     /**
      * Filtering - client-side MagicSearch
@@ -89,20 +99,38 @@
     ];
 
     // Listen for the creation of new nodes, and update the node list
-    $rootScope.$on(ironicEvents.ENROLL_NODE_SUCCESS, function() {
-      init();
-    });
+    var enrollNodeHandler =
+        $rootScope.$on(ironicEvents.ENROLL_NODE_SUCCESS,
+                       function() {
+                         init();
+                       });
 
-    $rootScope.$on(ironicEvents.DELETE_NODE_SUCCESS, function() {
-      init();
-    });
+    var deleteNodeHandler = $rootScope.$on(ironicEvents.DELETE_NODE_SUCCESS,
+                                           function() {
+                                             init();
+                                           });
 
-    $rootScope.$on(ironicEvents.CREATE_PORT_SUCCESS, function() {
-      init();
-    });
+    var editNodeHandler = $rootScope.$on(ironicEvents.EDIT_NODE_SUCCESS,
+                                         function() {
+                                           init();
+                                         });
 
-    $rootScope.$on(ironicEvents.DELETE_PORT_SUCCESS, function() {
-      init();
+    var createPortHandler = $rootScope.$on(ironicEvents.CREATE_PORT_SUCCESS,
+                                           function() {
+                                             init();
+                                           });
+
+    var deletePortHandler = $rootScope.$on(ironicEvents.DELETE_PORT_SUCCESS,
+                                           function() {
+                                             init();
+                                           });
+
+    $scope.$on('destroy', function() {
+      enrollNodeHandler();
+      deleteNodeHandler();
+      editNodeHandler();
+      createPortHandler();
+      deletePortHandler();
     });
 
     init();
@@ -118,15 +146,26 @@
     }
 
     function onGetNodes(response) {
-      ctrl.nodesSrc = response.data.items;
-      ctrl.nodesSrc.forEach(function (node) {
+      var promises = [];
+      angular.forEach(response.data.items, function (node) {
         node.id = node.uuid;
-        retrievePorts(node);
+        promises.push(retrievePorts(node));
+
+        // Report any changes in last-error
+        if (node.last_error !== "" &&
+            angular.isDefined(ctrl.nodesSrc[node.uuid]) &&
+            node.last_error !== ctrl.nodesSrc[node.uuid].last_error) {
+          toastService.add('error',
+                           "Node " + node.name + ". " + node.last_error);
+        }
+      });
+      $q.all(promises).then(function() {
+        ctrl.nodesSrc = response.data.items;
       });
     }
 
     function retrievePorts(node) {
-      ironic.getPortsWithNode(node.uuid).then(
+      return ironic.getPortsWithNode(node.uuid).then(
         function (response) {
           node.ports = response.data.items;
         }
@@ -151,6 +190,14 @@
 
     function enrollNode() {
       enrollNodeService.modal();
+    }
+
+    function editNode(node) {
+      editNodeService.modal(node);
+    }
+
+    function refresh() {
+      init();
     }
   }
 
