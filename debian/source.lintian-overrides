@@ -1,3 +1,4 @@
 # This is a false positive from Lintian: this really is a source file
 # and not a minimized .js file: it just happens to have a long line.
 ironic-ui source: source-is-missing ironic_ui/static/dashboard/admin/ironic/enroll-node/enroll-node.service.js line length is 1173 characters (>512)
+ironic-ui source: source-is-missing ironic_ui/static/dashboard/admin/ironic/base-node/base-node.service.js
