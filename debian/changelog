@@ -1,3 +1,10 @@
+ironic-ui (2.1.0-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Correctly run collectstatic and compress after install.
+
+ -- Thomas Goirand <zigo@debian.org>  Fri, 30 Sep 2016 11:09:28 +0200
+
 ironic-ui (2.0.0-1) experimental; urgency=medium
 
   * Initial release. (Closes: #839076)

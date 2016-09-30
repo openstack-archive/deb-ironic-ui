@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
-
 from django.conf import settings
 
 from ironicclient import client
@@ -25,9 +23,7 @@ from horizon.utils.memoized import memoized  # noqa
 from openstack_dashboard.api import base
 
 
-LOG = logging.getLogger(__name__)
-
-DEFAULT_IRONIC_API_VERSION = '1.6'
+DEFAULT_IRONIC_API_VERSION = '1.11'
 DEFAULT_INSECURE = False
 DEFAULT_CACERT = None
 
@@ -103,6 +99,19 @@ def node_set_power_state(request, node_id, state):
     return ironicclient(request).node.set_power_state(node_id, state)
 
 
+def node_set_provision_state(request, node_uuid, state):
+    """Set the target provision state for a given node.
+
+    :param request: HTTP request.
+    :param node_uuid: The UUID of the node.
+    :param state: the target provision state to set.
+    :return: node.
+
+    http://docs.openstack.org/developer/python-ironicclient/api/ironicclient.v1.node.html#ironicclient.v1.node.NodeManager.set_provision_state
+    """
+    return ironicclient(request).node.set_provision_state(node_uuid, state)
+
+
 def node_set_maintenance(request, node_id, state, maint_reason=None):
     """Set the maintenance mode on a given node.
 
@@ -147,6 +156,19 @@ def node_delete(request, node_id):
     http://docs.openstack.org/developer/python-ironicclient/api/ironicclient.v1.node.html#ironicclient.v1.node.NodeManager.delete
     """
     return ironicclient(request).node.delete(node_id)
+
+
+def node_update(request, node_id, patch):
+    """Update a specified node.
+
+    :param request: HTTP request.
+    :param node_id: The UUID of the node.
+    :param patch: Sequence of update operations
+    :return: node.
+
+    http://docs.openstack.org/developer/python-ironicclient/api/ironicclient.v1.node.html#ironicclient.v1.node.NodeManager.update
+    """
+    ironicclient(request).node.update(node_id, patch)
 
 
 def driver_list(request):
