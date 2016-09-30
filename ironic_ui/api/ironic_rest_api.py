@@ -69,10 +69,20 @@ class Node(generic.View):
         """Get information on a specific node.
 
         :param request: HTTP request.
-        :param node_id: Node name or uuid.
+        :param node_id: Node id.
         :return: node.
         """
         return ironic.node_get(request, node_id).to_dict()
+
+    @rest_utils.ajax(data_required=True)
+    def patch(self, request, node_id):
+        """Update an Ironic node
+
+        :param request: HTTP request
+        :param node_uuid: Node uuid.
+        """
+        patch = request.DATA.get('patch')
+        return ironic.node_update(request, node_id, patch)
 
 
 @urls.register
@@ -128,6 +138,23 @@ class StatesPower(generic.View):
         """
         state = request.DATA.get('state')
         return ironic.node_set_power_state(request, node_id, state)
+
+
+@urls.register
+class StatesProvision(generic.View):
+
+    url_regex = r'ironic/nodes/(?P<node_uuid>[0-9a-f-]+)/states/provision$'
+
+    @rest_utils.ajax(data_required=True)
+    def put(self, request, node_uuid):
+        """Set the provision state for a specified node.
+
+        :param request: HTTP request.
+        :param node_id: Node uuid
+        :return: Return code
+        """
+        verb = request.DATA.get('verb')
+        return ironic.node_set_provision_state(request, node_uuid, verb)
 
 
 @urls.register
