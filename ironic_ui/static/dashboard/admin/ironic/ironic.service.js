@@ -18,6 +18,41 @@
 (function () {
   'use strict';
 
+  var provisionStateTransitionMatrix = {
+    enroll: {
+      manageable: 'manage'
+    },
+    manageable: {
+      active: 'adopt',
+      available: 'provide'
+    },
+    active: {
+      manageable: 'deleted'
+    },
+    available: {
+      active: 'active',
+      manageable: 'manage'
+    },
+    'adopt failed': {
+      manageable: 'manage',
+      active: 'adopt'
+    },
+    'inspect failed': {
+      manageable: 'manage'
+    },
+    'clean failed': {
+      manageable: 'manage'
+    },
+    'deploy failed': {
+      active: 'active',
+      manageable: 'deleted'
+    },
+    error: {
+      active: 'rebuild',
+      manageable: 'deleted'
+    }
+  };
+
   angular
     .module('horizon.app.core.openstack-service-api')
     .factory('horizon.app.core.openstack-service-api.ironic', ironicAPI);
@@ -45,10 +80,13 @@
       getNode: getNode,
       getNodes: getNodes,
       getPortsWithNode: getPortsWithNode,
+      getProvisionStateTransitionVerb: getProvisionStateTransitionVerb,
       powerOffNode: powerOffNode,
       powerOnNode: powerOnNode,
       putNodeInMaintenanceMode: putNodeInMaintenanceMode,
-      removeNodeFromMaintenanceMode: removeNodeFromMaintenanceMode
+      removeNodeFromMaintenanceMode: removeNodeFromMaintenanceMode,
+      setNodeProvisionState: setNodeProvisionState,
+      updateNode: updateNode
     };
 
     return service;
@@ -200,6 +238,34 @@
     }
 
     /**
+     * @description Set the target provision state of the node.
+     *
+     * http://docs.openstack.org/developer/ironic/webapi/v1.html#
+     * put--v1-nodes-(node_ident)-states-provision
+     *
+     * @param {string} uuid – UUID of a node.
+     * @param {string} verb – Provisioning verb used to move node to desired
+     *                        target state
+     * @return {promise} Promise
+     */
+    function setNodeProvisionState(uuid, verb) {
+      var data = {
+        verb: verb
+      };
+      return apiService.put('/api/ironic/nodes/' + uuid + '/states/provision',
+                            data)
+        .success(function() {
+          var msg = gettext(
+            'A request has been made to change the provisioning state of node %s');
+          toastService.add('success', interpolate(msg, [uuid], false));
+        })
+        .error(function(reason) {
+          var msg = gettext('Unable to set node provision state: %s');
+          toastService.add('error', interpolate(msg, [reason], false));
+        });
+    }
+
+    /**
      * @description Create an Ironic node
      *
      * http://docs.openstack.org/developer/ironic/webapi/v1.html#post--v1-nodes
@@ -242,6 +308,32 @@
           toastService.add(
             'error',
             interpolate(msg, [nodeIdent, reason], false));
+        });
+    }
+
+    /**
+     * @description Update the definition of a specified node.
+     *
+     * http://docs.openstack.org/developer/ironic/webapi/v1.html#
+     * patch--v1-nodes-(node_ident)
+     *
+     * @param {string} uuid – UUID of a node.
+     * @param {object[]} patch – Sequence of update operations
+     * @return {promise} Promise
+     */
+    function updateNode(uuid, patch) {
+      var data = {
+        patch: patch
+      };
+      return apiService.patch('/api/ironic/nodes/' + uuid, data)
+        .success(function() {
+          var msg = gettext(
+            'Successfully updated node %s');
+          toastService.add('success', interpolate(msg, [uuid], false));
+        })
+        .error(function(reason) {
+          var msg = gettext('Unable to update node %s: %s');
+          toastService.add('error', interpolate(msg, [uuid, reason], false));
         });
     }
 
@@ -318,6 +410,25 @@
           var msg = gettext('Unable to delete port: %s');
           toastService.add('error', interpolate(msg, [reason], false));
         });
+    }
+
+    /**
+     * @description Get the verb used to transition a  node from a source
+     * provision-state to a target provision-state
+     *
+     * @param {string} sourceState – source state
+     * @param {string} targetState – target state
+     * @return {string} Verb used to transition from source to target state.
+     * null if the requested transition is not allowed.
+     */
+    function getProvisionStateTransitionVerb(sourceState, targetState) {
+      var verb = null;
+      if (angular.isDefined(provisionStateTransitionMatrix[sourceState]) &&
+          angular.isDefined(
+            provisionStateTransitionMatrix[sourceState][targetState])) {
+        verb = provisionStateTransitionMatrix[sourceState][targetState];
+      }
+      return verb;
     }
   }
 
