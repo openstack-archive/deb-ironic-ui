@@ -31,3 +31,17 @@ override_dh_auto_install:
 	done
 	mkdir -p $(CURDIR)/debian/python-ironic-ui/usr/share/openstack-dashboard/openstack_dashboard/enabled
 	cp $(CURDIR)/ironic_ui/enabled/_2*.py $(CURDIR)/debian/python-ironic-ui/usr/share/openstack-dashboard/openstack_dashboard/enabled
+
+	# Install the api folder stuff
+	mkdir -p $(CURDIR)/debian/python-ironic-ui/usr/share/openstack-dashboard/openstack_dashboard/api
+	set -e ; for i in ironic.py ironic_rest_api.py ; do \
+		cp ironic_ui/api/$$i $(CURDIR)/debian/python-ironic-ui/usr/share/openstack-dashboard/openstack_dashboard/api ; \
+	done
+
+	# Copy the admin folder content into dashboards/admin
+	mkdir -p $(CURDIR)/debian/python-ironic-ui/usr/share/openstack-dashboard/openstack_dashboard/dashboards/admin
+	cp -auxf ironic_ui/static/dashboard/admin/ironic /usr/share/openstack-dashboard/openstack_dashboard/dashboards/admin
+
+	# TODO: Copy the static files
+	mkdir -p $(CURDIR)/debian/python-ironic-ui/usr/share/openstack-dashboard/openstack_dashboard/static/dashboard/admin
+	cp -auxf ironic_ui/static/dashboard/admin/ironic /usr/share/openstack-dashboard/openstack_dashboard/static/dashboard/admin
