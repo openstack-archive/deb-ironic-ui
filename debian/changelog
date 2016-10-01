@@ -4,6 +4,7 @@ ironic-ui (2.1.0-1) experimental; urgency=medium
   * Correctly run collectstatic and compress after install.
   * Add ironic_ui/static/dashboard/admin/ironic/base-node/base-node.service.js
     to lintian-overrides.
+  * Added missing copyright holder in debian/copyright.
 
  -- Thomas Goirand <zigo@debian.org>  Fri, 30 Sep 2016 11:09:28 +0200
 
