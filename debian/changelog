@@ -1,6 +1,7 @@
-ironic-ui (2.1.0-1) experimental; urgency=medium
+ironic-ui (2.1.0-1) unstable; urgency=medium
 
   * New upstream release.
+  * Uploading to unstable.
   * Correctly run collectstatic and compress after install.
   * Add ironic_ui/static/dashboard/admin/ironic/base-node/base-node.service.js
     to lintian-overrides.
