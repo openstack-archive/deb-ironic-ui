@@ -1,0 +1,9 @@
+Code-Review+2: Jay Faulkner <jay@jvf.cc>
+Code-Review+2: Peter Piela <ppiela@cray.com>
+Workflow+1: Jay Faulkner <jay@jvf.cc>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 12 Dec 2016 23:55:19 +0000
+Reviewed-on: https://review.openstack.org/409203
+Project: openstack/deb-ironic-ui
+Branch: refs/heads/master
