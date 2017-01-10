@@ -1,0 +1,9 @@
+Code-Review+2: Julia Kreger <juliaashleykreger@gmail.com>
+Code-Review+2: Beth Elwell <e.r.elwell@gmail.com>
+Workflow+1: Beth Elwell <e.r.elwell@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 09 Jan 2017 14:16:09 +0000
+Reviewed-on: https://review.openstack.org/416000
+Project: openstack/deb-ironic-ui
+Branch: refs/heads/master
