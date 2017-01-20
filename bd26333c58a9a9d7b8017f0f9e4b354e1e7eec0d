@@ -1,0 +1,11 @@
+Code-Review+2: Julia Kreger <juliaashleykreger@gmail.com>
+Code-Review+1: wanghongtaozz <wanghongtaozz@inspur.com>
+Code-Review+2: Peter Piela <ppiela@cray.com>
+Code-Review+2: Beth Elwell <e.r.elwell@gmail.com>
+Workflow+1: Beth Elwell <e.r.elwell@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Fri, 20 Jan 2017 09:35:42 +0000
+Reviewed-on: https://review.openstack.org/421695
+Project: openstack/deb-ironic-ui
+Branch: refs/heads/master
