@@ -1,0 +1,9 @@
+Code-Review+1: Sergii Turivnyi <sturivnyi@mirantis.com>
+Code-Review+2: Dmitry Tantsur <divius.inside@gmail.com>
+Workflow+1: Dmitry Tantsur <divius.inside@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 16 May 2017 09:26:00 +0000
+Reviewed-on: https://review.openstack.org/464803
+Project: openstack/deb-ironic-ui
+Branch: refs/heads/stable/ocata
