@@ -1,0 +1,9 @@
+Code-Review+2: Dmitry Tantsur <divius.inside@gmail.com>
+Code-Review+2: Julia Kreger <juliaashleykreger@gmail.com>
+Workflow+1: Julia Kreger <juliaashleykreger@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 24 Jul 2017 13:08:01 +0000
+Reviewed-on: https://review.openstack.org/486380
+Project: openstack/deb-ironic-ui
+Branch: refs/heads/master
