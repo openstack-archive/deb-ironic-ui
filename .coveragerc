@@ -1,6 +1,0 @@
-[run]
-branch = True
-source = ironic-ui
-
-[report]
-ignore_errors = True
